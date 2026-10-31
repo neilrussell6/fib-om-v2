@@ -1,0 +1,62 @@
+# Progress — fib-om-v2
+
+Running log of where each feature stands in the workflow (`STRATEGY.md`). One bullet per step, oldest first; past entries are never edited.
+
+Shared background for all four features: `artifacts/docs/nextjs-vercel-neon-migration.md`. Earlier history of the combined spec (before the split into four features) is in `logs/nextjs-vercel-neon-migration/`.
+
+## 01-users-auth
+
+- 20261031-140121 — Phase 1, step "spec": done — `artifacts/specs/01-users-auth/spec.md`
+- 20261031-143655 — Phase 1, step "commit": done — commit `39c2bdb`
+- 20261031-150107 — Phase 1, step "spec review" + "spec validation": FAIL — `logs/01-users-auth/20261031-150107--spec-review--FAIL.md`
+- 20261031-150107 — Phase 1, step "spec revision": done — `logs/01-users-auth/20261031-150107--spec-revision-changelog.md`
+- 20261031-161830 — Phase 1, step "commit": done — commit `d6baeba`
+- 20261031-162027 — Phase 1, step "spec review" + "spec validation": PASS — `logs/01-users-auth/20261031-162027--spec-review--PASS.md`
+- 20261031-162027 — Phase 1, step "spec revision" (non-blocking items): done — `logs/01-users-auth/20261031-162027--spec-revision-changelog.md`
+- 20261031-170021 — Phase 1, step "commit": done — commit `6a67038`
+- 20261031-170759 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/01-users-auth/20261031-170759--book-changelog.md`
+
+## 02-basic-crud
+
+- 20261031-140121 — Phase 1, step "spec": done — `artifacts/specs/02-basic-crud/spec.md`
+- 20261031-143655 — Phase 1, step "commit": done — commit `39c2bdb`
+- 20261031-150418 — Phase 1, step "spec review" + "spec validation": FAIL — `logs/02-basic-crud/20261031-150418--spec-review--FAIL.md`
+- 20261031-150418 — Phase 1, step "spec revision": done — `logs/02-basic-crud/20261031-150418--spec-revision-changelog.md`
+- 20261031-161830 — Phase 1, step "commit": done — commit `d6baeba`
+- 20261031-162057 — Phase 1, step "spec review" + "spec validation": PASS — `logs/02-basic-crud/20261031-162057--spec-review--PASS.md`
+- 20261031-162057 — Phase 1, step "spec revision" (non-blocking items): done — `logs/02-basic-crud/20261031-162057--spec-revision-changelog.md`
+- 20261031-170021 — Phase 1, step "commit": done — commit `6a67038`
+- 20261031-170759 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/02-basic-crud/20261031-170759--book-changelog.md`
+
+## 03-custom-behaviour
+
+- 20261031-140121 — Phase 1, step "spec": done — `artifacts/specs/03-custom-behaviour/spec.md`
+- 20261031-143655 — Phase 1, step "commit": done — commit `39c2bdb`
+- 20261031-160347 — Phase 1, step "spec revision" (notcher contract rebuilt from production PHP): done — `logs/03-custom-behaviour/20261031-160347--spec-revision-changelog.md`
+- 20261031-161133 — Phase 1, step "spec review" + "spec validation": FAIL — `logs/03-custom-behaviour/20261031-161133--spec-review--FAIL.md`
+- 20261031-161830 — Phase 1, step "commit": done — commit `d6baeba`
+- 20261031-165253 — Phase 1, step "spec review" + "spec validation": FAIL — `logs/03-custom-behaviour/20261031-165253--spec-review--FAIL.md`
+- 20261031-165253 — Phase 1, step "spec revision": done — `logs/03-custom-behaviour/20261031-165253--spec-revision-changelog.md`
+- 20261031-170021 — Phase 1, step "commit": done — commit `6a67038`
+- 20261031-170129 — Phase 1, step "spec review" + "spec validation": PASS — `logs/03-custom-behaviour/20261031-170129--spec-review--PASS.md`
+- 20261031-170129 — Phase 1, step "spec revision" (non-blocking items): done — `logs/03-custom-behaviour/20261031-170129--spec-revision-changelog.md`
+- 20261031-170516 — Phase 1, step "commit": done — commit `4328d14`
+- 20261031-170759 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/03-custom-behaviour/20261031-170759--book-changelog.md`
+
+## 04-data-scripts
+
+- 20261031-140121 — Phase 1, step "spec": done — `artifacts/specs/04-data-scripts/spec.md`
+- 20261031-143655 — Phase 1, step "commit": done — commit `39c2bdb`
+- 20261031-160347 — Phase 1, step "spec revision" (data source moved to production MySQL): done — `logs/04-data-scripts/20261031-160347--spec-revision-changelog.md`
+- 20261031-161259 — Phase 1, step "spec review" + "spec validation": FAIL — `logs/04-data-scripts/20261031-161259--spec-review--FAIL.md`
+- 20261031-161830 — Phase 1, step "commit": done — commit `d6baeba`
+- 20261031-165731 — Phase 1, step "spec review" + "spec validation": FAIL — `logs/04-data-scripts/20261031-165731--spec-review--FAIL.md`
+- 20261031-165731 — Phase 1, step "spec revision": done — `logs/04-data-scripts/20261031-165731--spec-revision-changelog.md`
+- 20261031-170021 — Phase 1, step "commit": done — commit `6a67038`
+- 20261031-170459 — Phase 1, step "spec review" + "spec validation": FAIL — `logs/04-data-scripts/20261031-170459--spec-review--FAIL.md`
+- 20261031-170459 — Phase 1, step "spec revision": done — `logs/04-data-scripts/20261031-170459--spec-revision-changelog.md`
+- 20261031-170516 — Phase 1, step "commit": done — commit `4328d14`
+- 20261031-170623 — Phase 1, step "spec review" + "spec validation": PASS — `logs/04-data-scripts/20261031-170623--spec-review--PASS.md`
+- 20261031-170623 — Phase 1, step "spec revision" (non-blocking items): done — `logs/04-data-scripts/20261031-170623--spec-revision-changelog.md`
+- 20261031-170629 — Phase 1, step "commit": done — commit `fadc02c`
+- 20261031-170759 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/04-data-scripts/20261031-170759--book-changelog.md`

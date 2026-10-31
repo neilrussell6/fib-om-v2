@@ -1,0 +1,100 @@
+# Rebuilding FIB OM
+
+FIB OM is the internal order-management system for Fibatron, a filter manufacturer. Staff use it to keep the client list and product catalogue, take orders, track each order item through production (cut, sow, frame, media, wire, assemble, package) and print delivery dockets. A notcher machine on the factory floor reads a JSON feed from the same system to know which filters to notch.
+
+This book follows the rebuild of FIB OM as a single Next.js app on Vercel, backed by Neon Postgres. There are really three systems in this story. **Production** is a PHP app (Zend Framework 2 and Doctrine, with an AngularJS front end) on MySQL, and it's what staff and the notcher machine use today. **v1** (`../fib-om`) was a first rewrite (react-admin, PostgREST, DigitalOcean Postgres) that never went live. **v2**, this repo, is the rebuild. v1 is the reference for how every feature should behave; production is the reference only for the notcher feed, and the source of the real data.
+
+The work is split into four features, built in order. Each gets a chapter, and each chapter grows as the feature moves through the workflow: spec, tasks, implementation, review.
+
+The shared background for all four (architecture, conventions, environments, decisions) lives in `artifacts/docs/nextjs-vercel-neon-migration.md`.
+
+## How the specs came to be
+
+The project started from one long, human-written migration spec. Turning it into something buildable took several rounds. First it was reshaped into the workflow's spec format. Then the author answered its open questions and asked for it to be split into four specs, one per delivery phase: users and auth, basic CRUD, custom behaviour, and data scripts.
+
+The biggest turn came during the first review. The spec treated v1's Express notcher API as the contract for the notcher feed. Checking how that feed would grow past Vercel's 4.5 MB response limit led to a question about how production filters it, and the author pointed to the production PHP code. That code showed production wasn't v1 at all: it was a PHP app on MySQL, with a filtered feed and a different JSON shape. Everything that depended on "the legacy system" was re-examined. The outcome was a clear rule: v1 decides how features behave, production decides what the notcher feed returns and where the data comes from.
+
+Each spec then went through review until it passed: specs 01 and 02 on the second pass, 03 on the third, and 04 on the fourth.
+
+---
+
+# 1. Users and auth (`01-users-auth`)
+
+## Spec
+
+Before any screen can exist, the app needs a home: a Next.js 16 project with Tailwind and shadcn/ui, a Neon database client, versioned migrations, CI, a deploy pipeline and a way to sign in. This first feature builds all of that and stops at a deliberately small piece of real behaviour: staff sign in with email and password, land on an empty Dashboard inside the app shell, and sign out.
+
+The interesting decisions were about how sign-in behaves under pressure. The first draft rate-limited `/api/auth/*` with a Vercel Firewall rule. Review pointed out that Auth.js calls its own session and CSRF endpoints under that path during ordinary use, so staff could be locked out just by working. Then the author confirmed the project runs on Vercel's Hobby plan, so the limiter moved into the app instead: the `/login` Server Action records each attempt in a `login_attempts` table and refuses the eleventh within a minute from the same IP, without checking the password.
+
+Smaller choices fill in the rest. Sessions are an 8-hour rolling JWT, refreshed every 15 minutes of activity. An unknown email is still checked against a dummy bcrypt hash, so a failed login takes the same time either way and doesn't reveal which emails exist. Passwords need at least 12 characters and nothing else. Migrations are Atlas versioned SQL against Postgres 17:
+
+```hcl
+env "local" {
+  url = getenv("DATABASE_URL")
+  dev = "docker://postgres/17/dev"
+  migration {
+    dir = "file://db/migrations"
+  }
+}
+```
+
+Schema migrations and deploys only ever run from GitHub Actions. A push to `main` deploys to `staging.fibatron.com`, and production is a manual dispatch.
+
+---
+
+# 2. Basic CRUD (`02-basic-crud`)
+
+## Spec
+
+The second feature creates the full database schema and gives every resource the same plain screens: list, detail, create, edit and delete. It covers users, clients, products, product categories, types, sizes and media, orders, order items and delivery dockets. Everything that goes beyond plain CRUD is pushed to the next feature, so this one can concentrate on building the shared pieces well: a server-rendered table whose filters, sort and page live in the URL, a server-searching combobox, one form pattern shared by every resource, and one place that turns database errors into the friendly wording staff already know.
+
+That error mapping keys on Postgres SQLSTATE codes rather than matching error text, as v1 did:
+
+| SQLSTATE | Message |
+|---|---|
+| `23503` on delete | "cannot delete clients that still have orders" |
+| `23502` | "please provide a <column>" |
+| `22P02` | "please provide a valid integer" |
+
+The most important decision came out of review: which fields are actually required. The legacy schema had every client column `NOT NULL`, v1's form marked none of them required, and the import was going to turn blanks into `NULL`. These rules clashed. The author settled it: only identifying fields are required (a client's name, a product type's name and code, and so on). Everything else is optional and stored as `NULL` when blank. A few rules were also tightened: an order can only sit on a docket belonging to its own client, and nobody can delete their own account or the last remaining user.
+
+---
+
+# 3. Custom behaviour (`03-custom-behaviour`)
+
+## Spec
+
+This is where FIB OM stops being a generic admin panel. The order-items list changes its columns depending on the product category picked, driven by about forty `show_*` flags on each category. Production stages can be toggled straight from the list, with the change shown instantly and saved in the background. Orders show their items in a panel that sends you back to the order after an edit. Delivery dockets print as a proper docket, with orders added to and removed from them on screen. Pleat counts and wire lengths are calculated by plain Postgres views ported from v1's `views.sql`.
+
+Then there's the notcher feed, the one part of the system with a frozen contract:
+
+```
+GET {origin}/vw-notcher-api?key=<api key>
+```
+
+The notcher software can't be updated, so the new feed must return what production returns today. Reading the PHP controller and its Doctrine entities set the rules:
+- **Which items:** only items in New orders whose frame stage isn't done and whose product is marked for notching.
+- **Format:** keys in PHP's entity property order, with `/` escaped as `\/` and non-ASCII escaped as `\uXXXX`, exactly as PHP's `json_encode` does.
+- **Dates:** `d M`, e.g. `07 Jan`.
+
+Review found the details that would quietly break a byte-for-byte match:
+- **Integers:** the database driver returns `bigint` values as strings, so they must be turned back into numbers.
+- **Blank text:** production sends blank text as `""`, never `null`.
+- **Missing fields:** fields the new schema dropped, like prices and markup, still have to appear in the output, as `null`.
+
+The final check against real production output moved to the data-scripts feature, because it needs a production dump. This feature keeps a golden-file test built on synthetic data.
+
+---
+
+# 4. Data scripts (`04-data-scripts`)
+
+## Spec
+
+The last feature gets real data into the new system and plans the switchover. Three scripts run from a trusted operator machine, never from CI, because the data includes client details and order history:
+- **`snapshot.sh`** dumps production MySQL and captures the live notcher feed in the same minute.
+- **`seed-old`** loads clients and the product catalogue from that snapshot. It keeps their ids, cleans the data, applies v1's category renames and column flags, and verifies the result with checksums.
+- **`seed-dummy`** fills a local or staging database with synthetic data.
+
+Several safeguards protect production. `seed-old` keeps the new order and order-item id counters above production's highest ids, so the notcher never sees an id twice. The scripts compare their target host against a known production host, so a mislabelled target can't be wiped. Snapshots stay on an encrypted disk and are deleted after cutover.
+
+The cutover plan changed with the discovery that production is PHP on MySQL. The final archive is a `mysqldump`. The old site stays reachable at `old.fibatron.com` for 30 days. `fibatron.com` itself keeps pointing at the PHP app until staging has been tested thoroughly. Review also removed the one step that would have written to production: a test order created to confirm one JSON field. The notcher machine ignores docket data, and a live test job could have been processed on the factory floor, so the step wasn't worth that risk.
