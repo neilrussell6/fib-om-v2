@@ -1,4 +1,4 @@
-import { neon, neonConfig, Pool, type PoolClient } from "@neondatabase/serverless";
+import { neon, neonConfig, Pool, type PoolClient, types } from "@neondatabase/serverless";
 import ws from "ws";
 import { usesLocalProxy } from "./local-proxy";
 
@@ -20,6 +20,8 @@ function configure(): void {
   if (configured) return;
   configured = true;
   neonConfig.webSocketConstructor = ws;
+  // DATE columns stay as "YYYY-MM-DD" strings (no timezone shifts through JS Date).
+  types.setTypeParser(types.builtins.DATE, (value: string) => value);
   if (usesLocalProxy(databaseUrl())) {
     neonConfig.fetchEndpoint = (host) => `http://${host}:${LOCAL_PROXY_PORT}/sql`;
     neonConfig.useSecureWebSocket = false;
@@ -39,6 +41,17 @@ function client(): ReturnType<typeof neon> {
 export function sql<T = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T[]> {
   return client()(strings, ...values) as unknown as Promise<T[]>;
 }
+
+/**
+ * A parameterised query from a SQL string. Only for SQL built from code constants
+ * (allowlisted identifiers); every value goes in params as $n.
+ */
+export async function query<T = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> {
+  return (await client().query(text, params)) as unknown as T[];
+}
+
+/** Anything that can run a parameterised query: a pooled client inside tx(), or the HTTP client. */
+export type Queryable = { query: (text: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }> };
 
 let pool: Pool | undefined;
 export function getPool(): Pool {

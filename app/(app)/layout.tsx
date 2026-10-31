@@ -24,8 +24,8 @@ async function Content({ children }: { children: React.ReactNode }) {
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
-    <div className="flex min-h-screen flex-1 flex-col bg-sidebar">
-      <header className="flex h-14 items-center justify-between gap-3 px-4 text-sidebar-foreground">
+    <div className="flex min-h-screen flex-1 flex-col bg-sidebar print:bg-white">
+      <header className="flex h-14 items-center justify-between gap-3 px-4 text-sidebar-foreground print:hidden">
         <div className="flex items-center gap-2">
           <Suspense fallback={null}>
             <MobileNav />
@@ -37,10 +37,10 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         </Suspense>
       </header>
       <div className="flex flex-1">
-        <Suspense fallback={<aside className="hidden w-60 shrink-0 md:block" />}>
+        <Suspense fallback={<aside className="hidden w-60 shrink-0 md:block print:hidden" />}>
           <DesktopSidebar />
         </Suspense>
-        <main className="flex-1 bg-background p-6 text-foreground">
+        <main className="min-w-0 flex-1 bg-background p-6 text-foreground print:p-0">
           <Suspense fallback={null}>
             <Content>{children}</Content>
           </Suspense>

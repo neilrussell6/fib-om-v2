@@ -29,9 +29,10 @@ describe("AC-9 sidebar", () => {
     }
   });
 
-  it("enables only Dashboard in this feature", async () => {
+  // Spec 01 enabled only Dashboard; spec 02 enables every entry (each feature adds its own).
+  it("enables every entry once all screens exist (spec 02)", async () => {
     const { NAV_ITEMS } = await import("@/components/app-shell/nav-items");
-    expect(NAV_ITEMS.map((i) => i.label)).toEqual(["Dashboard"]);
+    expect(NAV_ITEMS.map((i) => i.label)).toEqual(FINAL_ORDER);
     expect(NAV_ITEMS[0].href).toBe("/");
   });
 

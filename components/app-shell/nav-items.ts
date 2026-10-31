@@ -30,7 +30,7 @@ export const ALL_NAV_ITEMS: NavItem[] = [
   { label: "Users", href: "/users", icon: UserCog },
 ];
 
-/** Screens that exist so far. */
-const ENABLED = new Set(["/"]);
+/** Screens that exist so far: all of them since spec 02. */
+const ENABLED = new Set(ALL_NAV_ITEMS.map((i) => i.href));
 
 export const NAV_ITEMS: NavItem[] = ALL_NAV_ITEMS.filter((item) => ENABLED.has(item.href));

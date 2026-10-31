@@ -12,7 +12,7 @@ import { SidebarNav } from "./sidebar-nav";
 export function DesktopSidebar() {
   const pathname = usePathname();
   return (
-    <aside className="hidden w-60 shrink-0 bg-sidebar p-3 md:block">
+    <aside className="hidden w-60 shrink-0 bg-sidebar p-3 md:block print:hidden">
       <nav aria-label="Main">
         <SidebarNav items={NAV_ITEMS} activeHref={pathname} />
       </nav>

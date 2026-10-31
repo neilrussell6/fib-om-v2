@@ -27,3 +27,21 @@ export async function createUser(email: string, passwordHash: string): Promise<U
     throw err;
   }
 }
+
+/**
+ * Spec 02: you can't delete your own account, and the last remaining user
+ * can't be deleted. Runs on the given client so callers can wrap it in a
+ * transaction (the count and the delete must see the same state).
+ */
+export async function deleteUserChecked(
+  db: { query: (text: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }> },
+  targetId: number | string,
+  currentUserId: number | string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (String(targetId) === String(currentUserId)) return { ok: false, error: "You can't delete your own account" };
+  // Lock the users table rows so two concurrent deletes can't both pass the count.
+  const { rows } = await db.query("SELECT id FROM users FOR UPDATE");
+  if (rows.length <= 1) return { ok: false, error: "Can't delete the last user" };
+  await db.query("DELETE FROM users WHERE id = $1", [targetId]);
+  return { ok: true };
+}

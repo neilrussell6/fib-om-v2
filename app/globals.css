@@ -98,3 +98,32 @@
     font-size: 16px;
   }
 }
+/* Printing (spec 02): A4, black text, shell and screen-only parts hidden. */
+@page {
+  size: A4;
+  margin: 15mm;
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff;
+  }
+  body * {
+    color: #000000 !important;
+  }
+  .screen-only {
+    display: none !important;
+  }
+  h2,
+  h3 {
+    margin-top: 1.5rem;
+  }
+}
+
+/* Print-only content: hidden on screen. */
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
