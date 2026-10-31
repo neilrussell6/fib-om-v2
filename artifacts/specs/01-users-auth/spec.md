@@ -15,9 +15,9 @@ Stand up the new app and everything around it: the Next.js project, theme, datab
 ## User-visible behaviour
 
 ### Login and sessions
-- An email/password login page at `/login`, on the background image `web3/src/assets/bg.jpg`, titled "Fibatron". (Using the logo `fibatron_logo128x128.png` on the login card is optional.)
+- An email/password login page at `/login`, on the background image from `web3/src/assets/bg.jpg` (copied into `public/`), titled "Fibatron". (Using the logo `fibatron_logo128x128.png` on the login card is optional.)
 - A failed login shows one generic message, "Email or password is incorrect" **(improvement: no account enumeration)**.
-- Login attempts are rate-limited by a Vercel Firewall rule on `POST /login` and `/api/auth/*`: 10 requests per minute per IP; over the limit gets `429` for the rest of the window.
+- **Sign-in attempts are rate-limited in the app** (the project is on Vercel Hobby, so no Firewall rule): at most 10 sign-in attempts per minute per IP. The 11th attempt within the window is refused without checking the password and shows "Too many sign-in attempts. Try again in a minute." Only sign-in attempts count; normal page use, session checks and sign-out are never limited.
 - Every route needs a session except `/login`, static assets and `/vw-notcher-api` (protected by its own `key` in `03-custom-behaviour`).
 - An unauthenticated or expired session sends the user to `/login?callbackUrl=<current path>`, and after signing in they go back there **(improvement: web3 always drops you at the default page)**. Only internal paths are honoured; anything else falls back to `/`.
 - Sessions are a JWT cookie with an 8-hour rolling lifetime (web3: fixed 1 hour).
@@ -52,12 +52,14 @@ Stand up the new app and everything around it: the Next.js project, theme, datab
 
 - **Project:** Next.js 16 App Router, TypeScript, Turbopack, Tailwind v4, shadcn/ui, Node 24 (matches `.tool-versions`). Layout as in overview O4.1 (paths marked `[01]`).
 - **DB access:** `lib/db/index.ts` exports the `neon()` tagged-template `sql`, a `Pool`, and `tx(async (client) => …)`. Conventions in O5.
-- **Migrations:** Atlas, `atlas.hcl`, `scripts/db.sh` and the `db:*` npm scripts, exactly as O7.2. This feature's migration creates `users`: `id` (identity), `email` (`NOT NULL`, unique, stored lowercased), `password_hash` (`NOT NULL`, bcrypt), `created_at`. (A unique email is needed for login, so it is not one of the rejected "new data rules".)
-- **Auth:** Auth.js (NextAuth v5) Credentials provider in `lib/auth.ts`; passwords checked with `bcryptjs.compare`; session strategy `jwt` with `maxAge` 8h and `updateAge` so activity extends it; signed with `AUTH_SECRET`.
+- **Migrations:** Atlas, `atlas.hcl`, `scripts/db.sh` and the `db:*` npm scripts, exactly as O7.2. Postgres 17 (Neon and the `atlas.hcl` dev image). This feature's migrations create `login_attempts` (above) and `users`: `id` (identity), `email` (`NOT NULL`, unique, stored lowercased), `password_hash` (`NOT NULL`, bcrypt), `created_at`. (A unique email is needed for login, so it is not one of the rejected "new data rules".)
+- **Auth:** Auth.js (NextAuth v5) Credentials provider in `lib/auth.ts`; sign-in is a Server Action on `/login`. The typed email is trimmed and lowercased before lookup. Passwords are checked with `bcryptjs.compare`; for an unknown email the password is compared against a fixed dummy bcrypt hash so both failure cases take the same time. Session strategy `jwt` with `maxAge` 8h and `updateAge` 15 minutes, so activity extends the session; signed with `AUTH_SECRET`.
+- **Sign-in rate limit:** a `login_attempts` table (`ip`, `attempted_at`, index on `(ip, attempted_at)`). The sign-in Server Action records each attempt and refuses when the IP has 10 or more attempts in the last 60 seconds. The client IP is read from Vercel's `x-real-ip` header (falling back to the first `x-forwarded-for` entry). Rows older than one hour are deleted opportunistically on each attempt.
 - **Route protection:** `proxy.ts` redirects unauthenticated requests to `/login?callbackUrl=…`. Its `matcher` excludes `/login`, `/api/auth/*`, Next static assets, public files and `/vw-notcher-api`. Pages and Server Actions also check the session on the server (defence in depth).
 - **`callbackUrl` safety:** accepted only if it starts with a single `/` (not `//`, not a scheme).
 - **`scripts/create-user.ts`:** `create-user <email>`; reads the password from a prompt or `CREATE_USER_PASSWORD`, never from argv; rejects passwords shorter than 12 characters (no other rules); hashes with bcrypt (cost ≥ 10); fails if the email already exists. The password rule lives in a shared zod schema so the Users screen (spec 02) uses the same one.
-- **CI / deploy:** `ci.yml` and `deploy.yml` as O7.3. The first deploy is a manual production run so the staging guard passes.
+- **CI / deploy:** `ci.yml` and `deploy.yml` as O7.3. `ci.yml` also runs gitleaks over the repo, and runs `atlas migrate lint` with Docker available for the dev database (`docker://postgres/17/dev`). The staging domain comes from the GitHub repo variable `STAGING_DOMAIN` (`staging.fibatron.com`). The first deploy is a manual production run so the staging guard passes.
+- **Vercel plan:** Hobby (author decision). No Firewall rules are relied on.
 - **Config:** `.env.tpl` lists `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AUTH_SECRET`, `NOTCHER_API_KEY`, `FROM_CLIENT_ID` with no values. `.vercelignore` as O7.4. GitHub/Vercel/Neon configuration as O7.4.
 - **Security:** rotate the legacy hardcoded DigitalOcean DB password (O8).
 
@@ -69,8 +71,8 @@ Automated (unit, integration against Postgres with migrations applied, or Playwr
 2. **AC-2** An unauthenticated request to `/` redirects to `/login?callbackUrl=%2F`.
 3. **AC-3** Logging in with a valid email and password (user created by `create-user`) lands on `/`, which shows the heading "Dashboard" inside the app shell.
 4. **AC-4** Logging in from `/login?callbackUrl=/some/internal/path` lands on `/some/internal/path`; `callbackUrl` values `https://evil.example`, `//evil.example` and `javascript:alert(1)` land on `/` instead.
-5. **AC-5** A wrong password for an existing email, and any password for an unknown email, both show exactly "Email or password is incorrect" and nothing else that differs between the two cases.
-6. **AC-6** The session is a JWT cookie (no sessions table exists); a session idle for more than 8 hours is rejected, and a request within 8 hours extends the expiry.
+5. **AC-5** A wrong password for an existing email, and any password for an unknown email, both show exactly "Email or password is incorrect"; both paths call bcrypt compare (unit test with a spy), so their timing doesn't reveal whether the email exists. Logging in with the email in different case (e.g. `Staff@Example.com`) works.
+6. **AC-6** The session is a JWT cookie (no sessions table exists); `updateAge` is 15 minutes; a session idle for more than 8 hours is rejected, and a request more than 15 minutes after the last refresh (within 8 hours) extends the expiry.
 7. **AC-7** The top bar shows the signed-in user's email; Sign out ends the session, and the next request to `/` redirects to `/login`.
 8. **AC-8** `/login`, `/api/auth/*`, static assets and `/vw-notcher-api` are not redirected by `proxy.ts` for an unauthenticated request; every other path is.
 9. **AC-9** The sidebar shows Dashboard with an icon, marked `aria-current="page"` on `/`; the sidebar component renders entries in the final order given above when given the full list (unit test).
@@ -80,15 +82,16 @@ Automated (unit, integration against Postgres with migrations applied, or Playwr
 13. **AC-13** An automated contrast check passes WCAG AA for body text, muted text used at body size (must not use `#919191`), and primary/secondary buttons; an axe scan of `/login` and `/` reports no critical violations.
 14. **AC-14** `scripts/create-user.ts` creates a user whose password is stored as a bcrypt hash (never plaintext) and who can log in; running it again with the same email fails without changing the user; an 11-character password is rejected and a 12-character one accepted; the password is not accepted as a command-line argument.
 15. **AC-15** The `users` migration is an Atlas versioned migration; `npm run db:validate` passes; `db:migrate`, `db:status`, `db:new` and `db:hash` exist and call Atlas through `scripts/db.sh` with `--revisions-schema public`.
-16. **AC-16** `ci.yml` runs install, typecheck, lint, unit tests, `atlas migrate validate`, `atlas migrate lint --latest 1`, then integration tests against a Postgres service container after `atlas migrate apply`; a failing step fails the run.
-17. **AC-17** `deploy.yml`: on push to `main` it fails if no production deployment exists, applies migrations over `DATABASE_URL_UNPOOLED` with `revisions-schema: public` before `vercel build`/`vercel deploy --prebuilt`, stops if migrations fail, and aliases to the staging domain via the Vercel API; on `workflow_dispatch` it does the same for production with `--prod`.
-18. **AC-18** No secret is committed (a secret scan of the repo passes); `.env.tpl` lists the five variables above without values; `.vercelignore` excludes `.claude`, `.cursor` and test output.
+16. **AC-16** `ci.yml` runs install, typecheck, lint, unit tests, gitleaks, `atlas migrate validate`, `atlas migrate lint --latest 1` (with Docker for the dev database), then integration tests against a Postgres service container after `atlas migrate apply`; a failing step fails the run.
+17. **AC-17** `deploy.yml`: on push to `main` it fails if no production deployment exists, applies migrations over `DATABASE_URL_UNPOOLED` with `revisions-schema: public` before `vercel build`/`vercel deploy --prebuilt`, stops if migrations fail, and aliases to the domain in the `STAGING_DOMAIN` repo variable via the Vercel API; on `workflow_dispatch` it does the same for production with `--prod`.
+18. **AC-18** No secret is committed (gitleaks passes in CI); `.env.tpl` lists the five variables above without values; `.vercelignore` excludes `.claude`, `.cursor` and test output.
+
+19. **AC-19** From one IP, 10 sign-in attempts within a minute are each processed normally; the 11th is refused with "Too many sign-in attempts. Try again in a minute." and the password is not checked; after 60 seconds attempts are accepted again; page loads, `/api/auth/session` and sign-out are never refused by the limiter.
 
 Operational (recorded check, not CI):
 
-19. **AC-19** The first manual production deploy has run, and a subsequent push to `main` deploys to the staging domain.
-20. **AC-20** Vercel Git auto-deploys are off; Production and Preview each have `DATABASE_URL`, `AUTH_SECRET` (distinct values), `NOTCHER_API_KEY` and `FROM_CLIENT_ID`, marked Sensitive.
-21. **AC-21** A Vercel Firewall rate-limit rule of 10 requests per minute per IP exists on `POST /login` and `/api/auth/*`, and an 11th request within a minute gets `429` (screenshot or config export plus one recorded test).
+20. **AC-20** The first manual production deploy has run, and a subsequent push to `main` deploys to `staging.fibatron.com`.
+21. **AC-21** Vercel Git auto-deploys are off; Production and Preview each have `DATABASE_URL`, `AUTH_SECRET` (distinct values), `NOTCHER_API_KEY` and `FROM_CLIENT_ID`, marked Sensitive.
 22. **AC-22** The legacy DigitalOcean DB password hardcoded in `packages/notcher-api/src/index.js` has been rotated (recorded confirmation).
 
 ## Out of scope
@@ -102,5 +105,5 @@ Operational (recorded check, not CI):
 
 ## Open questions
 
-1. ~~**OQ-1 Firewall limits**~~ — resolved 2026-10-31: 10 requests per minute per IP.
+1. ~~**OQ-1 Sign-in limit**~~ — resolved 2026-10-31: 10 sign-in attempts per minute per IP, enforced in the app (Vercel Hobby).
 2. ~~**OQ-2 Password policy**~~ — resolved 2026-10-31: minimum 12 characters, no other rules (applies to `create-user` and the Users screen in spec 02).

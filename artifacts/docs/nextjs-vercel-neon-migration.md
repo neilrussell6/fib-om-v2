@@ -22,9 +22,9 @@ Each spec refers to sections here as **O1–O9**. Every **(improvement)** in the
 
 FIB OM is an internal order-management tool for Fibatron, a filter manufacturer. Staff use it to manage clients and the product catalogue, take orders, track production of each order item through its stages (cut, sow, frame, media, wire, assemble, package), and print delivery dockets.
 
-Today it runs as five separate pieces on DigitalOcean. The migration replaces all of them with one Next.js App Router app on Vercel, backed by Neon Postgres, with shadcn/ui for the interface. The reference data (clients and the product catalogue) is copied over once. Orders, order items, delivery dockets and invoices start empty in the new system.
+**Production today is a PHP app (Zend Framework 2 + Doctrine, AngularJS front end) on MySQL** (`legacy-prod/`, gitignored because it contains credentials). A first rewrite, **v1** (`../fib-om`: web3 on react-admin, PostgREST, DigitalOcean Postgres, an Express notcher API), never went live; it runs as five separate pieces on DigitalOcean. **v1 is the reference for every feature; production is the reference only for the notcher feed (`/vw-notcher-api`) and is the source of the real data.** The migration replaces all of them with one Next.js App Router app on Vercel, backed by Neon Postgres, with shadcn/ui for the interface. The reference data (clients and the product catalogue) is copied over once. Orders, order items, delivery dockets and invoices start empty in the new system.
 
-## O2. Current state (legacy)
+## O2. v1 (`../fib-om`): the feature reference
 
 | Component | Location | Role |
 |---|---|---|
@@ -37,7 +37,7 @@ Today it runs as five separate pieces on DigitalOcean. The migration replaces al
 
 ### O2.1 Data model (inferred from UI resources and notcher query)
 
-The DDL (`sql/migrations/schema.sql`, `views.sql`, `data-ddl-updates.sql`) is **not in the repo**. The author will provide a production schema dump (`pg_dump -s`); it is the authority for column types, the view formulas and the legacy column order. Legacy reference files are also available outside this repo in `../fib-om-v2-reference/migrations/`: `data.sql` (a full `pg_dump`, schema and data, Postgres 12.7), then `data-ddl-updates.sql`, `data-dml-updates.sql` and `views.sql`, applied in that order. They contain real client data and are never copied into this repo. These files are the current schema dump; a newer production dump will replace them, and the schema migrations (spec 02), the notcher column list and the derived-column fixture (spec 03) must be checked against that newer dump before cutover. Until it arrives, the tables below were reconstructed from the code.
+The DDL (`sql/migrations/schema.sql`, `views.sql`, `data-ddl-updates.sql`) is **not in the repo**. v1's schema and data are available outside this repo in `../fib-om-v2-reference/migrations/`, the final v1 reference (no newer v1 dump is coming): `data.sql` (a full `pg_dump`, schema and data, Postgres 12.7), then `data-ddl-updates.sql`, `data-dml-updates.sql` and `views.sql`, applied in that order. They contain real client data and are never copied into this repo. They are the authority for v1's columns, the view formulas (`views.sql`) and the derived-column fixture. Separately, the author will provide a **production MySQL dump**; it is the authority for the import mapping (spec 04) and the notcher capture check (spec 03). The tables below were reconstructed from the code and are checked against these files.
 
 **In scope for data migration**
 
@@ -72,7 +72,7 @@ The DDL (`sql/migrations/schema.sql`, `views.sql`, `data-ddl-updates.sql`) is **
 | `products_rel` | products list and detail | `category_name`, `type_name`, `type_code`, `size_name`, `media_name` |
 | `delivery_dockets_rel` | dockets list and detail | `fromclient_name`, `toclient_name`, and `docket_number` |
 
-The formulas are only in `views.sql` in the DB; they come from the schema dump.
+The formulas are in v1's `views.sql` (`../fib-om-v2-reference/migrations/`).
 
 ## O3. Goals, non-goals and decisions
 
@@ -82,7 +82,7 @@ The formulas are only in `views.sql` in the DB; they come from the schema dump.
 - Neon Postgres, with typed schema and migrations kept in the repo.
 - Clients and product reference data copied over with the same IDs.
 - Remove the secrets hardcoded in the codebase (O8).
-- **Notcher feed unchanged:** same URL (scheme, host, port, path), same headers, same body, byte for byte. The external software that reads it cannot be updated.
+- **Notcher feed unchanged:** same URL (scheme, host, port, path) and the same response the production PHP app gives today (filter, keys, format, headers), with removed fields emitted empty. The external software that reads it cannot be updated.
 
 **Non-goals**
 - Migrating orders, order items, delivery dockets or invoices. Old orders are never imported into the new app; the archived dump plus 30 days of the old system in read-only mode is enough.
@@ -99,6 +99,9 @@ Constraints that already exist in web3's database stay: foreign keys that block 
 
 | Topic | Decision |
 |---|---|
+| Reference systems | v1 (`../fib-om`) for every feature; production PHP + MySQL (`legacy-prod/`) only for `/vw-notcher-api` and as the data source |
+| Notcher feed | Matches the production PHP output (filter, key order, `json_encode` format, headers); values come from the new schema, transformed in TypeScript; removed fields emitted empty (`null`) |
+| Data source | Production MySQL (`mysqldump`), with v1's reference-data changes (category renames, added categories, `show_*` flags) applied on import |
 | Open orders at cutover | Staff close them in the old system before cutover; they are not re-entered |
 | Docket number / from-client | `docket_number` is the id zero-padded to 6 digits; `fromclient_id` comes from the `FROM_CLIENT_ID` env var (value set per environment at deploy time) |
 | Users | Recreated, not migrated (no password hashes copied). A Users admin screen is in scope |
@@ -106,7 +109,7 @@ Constraints that already exist in web3's database stay: foreign keys that block 
 | Column names | Renamed to snake_case in the new schema; the notcher feed emits the legacy names via an explicit column list |
 | Orphaned products | Skipped by the data import and logged |
 | Branch | `main` everywhere; `STRATEGY.md` commits directly to `main` |
-| Schema source | The author provides a production schema dump |
+| Schema source | v1: `../fib-om-v2-reference/migrations/` (final); production: a MySQL dump the author will provide |
 | Legacy data snapshot | A bash script connects to the legacy DB and takes a data dump |
 | `seed-dummy` | Allowed locally and on staging; refuses production |
 | Test tools | Vitest (unit, integration against a real Postgres), Playwright (end-to-end) |
@@ -115,11 +118,13 @@ Constraints that already exist in web3's database stay: foreign keys that block 
 | Structure | Four feature specs, delivered in order (table above) |
 | Notcher host | `https://fibatron.com`, which serves nothing besides this app |
 | `www` | Vercel default: `fibatron.com` → `www.fibatron.com` (`308`), including the feed, if the notcher is proven on staging to follow it; otherwise the feed path is exempted from the redirect |
-| Schema dump | `../fib-om-v2-reference/migrations/` for now; a newer production dump will follow |
 | Notcher source IP | Not stable; no Firewall IP allowlist |
 | Data scripts | Run from a trusted machine only; legacy data never passes through CI |
 | Calculated columns | Plain Postgres views |
-| Login rate limit | 10 requests/min per IP |
+| Login rate limit | 10 sign-in attempts/min per IP, enforced in the app (no Firewall rule) |
+| Vercel plan | Hobby |
+| Staging domain | `staging.fibatron.com` (repo variable `STAGING_DOMAIN`) |
+| Postgres | 17 |
 | Passwords | Minimum 12 characters, no other rules |
 
 ## O4. Target architecture
@@ -219,7 +224,7 @@ Schema migrations and Vercel deployments **only ever run from GitHub Actions**. 
 | Env | Trigger | Vercel target | Neon branch | URL |
 |---|---|---|---|---|
 | Local | `npm run dev` | n/a | local Postgres container (or a personal Neon branch) | `http://localhost:3000` |
-| Staging | every push to `main` | preview, aliased to a fixed staging domain | `staging` | e.g. `fib-om-staging.<domain>` |
+| Staging | every push to `main` | preview, aliased to a fixed staging domain | `staging` | `https://staging.fibatron.com` |
 | Production | manual **Actions → Deploy → Run workflow** (`workflow_dispatch`) | production (`--prod`) | `production` | `https://www.fibatron.com` (primary); `fibatron.com` redirects to it with Vercel's default `308`. The notcher calls `https://fibatron.com/vw-notcher-api` and must be proven to follow that redirect (spec 04) |
 
 There's a fixed `staging` Neon branch rather than one per preview, because CI applies migrations to a known database before each deploy.
@@ -250,8 +255,8 @@ There's a fixed `staging` Neon branch rather than one per preview, because CI ap
 - **Data scripts** (`snapshot.sh`, `seed-old`, `seed-dummy`) never run in CI; an operator runs them from a trusted machine (spec 04).
 
 ### O7.4 Configuration
-- **GitHub:** repo variables `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `VERCEL_EMAIL`; repo secret `VERCEL_TOKEN`; environments `staging` and `production`, each with secret `DATABASE_URL_UNPOOLED`. `SOURCE_DATABASE_URL` is **not** stored in GitHub; the operator supplies it on the trusted machine (spec 04).
-- **Vercel:** one project (Next.js, Node 24), Git auto-deploys off; production domain on Production, staging domain assigned by CI; env vars per environment (Production and Preview): `DATABASE_URL` (pooled), `AUTH_SECRET` (different in each), `NOTCHER_API_KEY`, `FROM_CLIENT_ID`; secrets marked Sensitive (CI reads `DATABASE_URL_UNPOOLED` from GitHub, not Vercel); a Firewall rate-limit rule on `POST /login` and `/api/auth/*`.
+- **GitHub:** repo variables `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `VERCEL_EMAIL`, `STAGING_DOMAIN`; repo secret `VERCEL_TOKEN`; environments `staging` and `production`, each with secret `DATABASE_URL_UNPOOLED`. `SOURCE_DATABASE_URL` is **not** stored in GitHub; the operator supplies it on the trusted machine (spec 04).
+- **Vercel:** one project (Next.js, Node 24), Git auto-deploys off; production domain on Production, staging domain assigned by CI; env vars per environment (Production and Preview): `DATABASE_URL` (pooled), `AUTH_SECRET` (different in each), `NOTCHER_API_KEY`, `FROM_CLIENT_ID`; secrets marked Sensitive (CI reads `DATABASE_URL_UNPOOLED` from GitHub, not Vercel). Plan: Hobby; no Firewall rules are relied on (sign-in rate limiting is in the app).
 - **Neon:** one project with branches `production` and `staging`. Create staging from production after the reference data is loaded. If Neon was added through the Vercel Marketplace, turn off its per-preview branch creation.
 - **Local:** `.env.tpl` → `.env`, with `DATABASE_URL` pointing at a local Postgres container. Install Atlas with `curl -sSf https://atlasgo.sh | sh`. `.vercelignore` excludes tooling directories (`.claude`, `.cursor`, test output), which break `vercel deploy --prebuilt`.
 

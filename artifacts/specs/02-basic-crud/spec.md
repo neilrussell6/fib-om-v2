@@ -56,15 +56,16 @@ Create the full database schema and give every resource plain list, detail, crea
 | Products | category name ↑ | name, type (combobox), size (text), media (text), category (combobox), efficiency (text) | category, type name, type code, name, size, media | name, category, type, size, media (comboboxes, required), notcher (switch), efficiency |
 | Product categories | name ↑ | name | name | name, plus every `show_*` flag as a switch, grouped under the heading "Columns to show on Order Items page (for this category)", with the groups from legacy `productCategories.jsx` |
 | Product types | code ↑ | name, code | name, code, mm per pleat | name, code, mm per pleat |
-| Product sizes | name ↑ | name | name | name only (any other columns in the schema dump are stored and imported, but not shown or editable, as in web3) |
+| Product sizes | name ↑ | name | name | name only (any other columns in v1's schema are stored and imported, but not shown or editable, as in web3) |
 | Product media | code ↑ | name, code | name, code, pleat spacing | name, code, pleat spacing (number) |
 
-- **Users:** passwords must be at least 12 characters (same shared zod rule as `create-user`, spec 01); they are stored only as bcrypt hashes and never displayed or returned.
+- **Required fields (decided 2026-10-31):** only identifying fields are required: client name; product name, category, type, size and media; product category name; product type name and code; product size name; product media name and code. Every other reference-data field is optional (nullable; empty input is saved as NULL). The final column list is checked against v1's schema (`../fib-om-v2-reference/migrations/`) and the production MySQL dump.
+- **Users:** you can't delete your own account ("You can't delete your own account"), and the last remaining user can't be deleted ("Can't delete the last user"). Passwords must be at least 12 characters (same shared zod rule as `create-user`, spec 01); they are stored only as bcrypt hashes and never displayed or returned.
 - **Product type filter (improvement):** filters on `type_id` (web3 wrongly puts the id onto `type_name`). Size and media stay as text filters on the joined names.
 
 ### Orders (basic)
 - List sorted by created date, newest first. Filters: client, order number, due date range, created date range, status, delivery docket. Columns: client (links to client), order number, delivery docket (shown zero-padded to 6 digits), created, due, status.
-- Create/edit: client (combobox, required), order number (required), due date (required), status (required, default New), delivery docket (combobox, optional, shown zero-padded).
+- Create/edit: client (combobox, required), order number (required), due date (required), status (required, default New), delivery docket (combobox, optional, shown zero-padded). The docket combobox only offers dockets whose to-client is the order's client; the Server Action refuses any other docket with "delivery docket belongs to another client" (same rule as spec 03).
 - Status choices: New, Complete, Archived.
 - `date` (created date) isn't on the form; the database sets it (`DEFAULT current_date`).
 - Detail shows client, order number, created date, due date, status, delivery docket. (The order items panel is added in spec 03.)
@@ -87,7 +88,7 @@ Create the full database schema and give every resource plain list, detail, crea
 ### Delivery dockets (basic)
 - Statuses: Current, Archived; default Current.
 - List sorted by date, newest first. Filters: to-client name, docket number, created date range, and status (always shown). Columns: to-client, docket number, date, status.
-- Create: to-client (combobox, required) and status. `date` comes from `DEFAULT current_date`; `fromclient_id` comes from the `FROM_CLIENT_ID` env var on the server and is not on the form. On success it goes to the **new docket's detail page**.
+- Create: to-client (combobox, required) and status. `date` comes from `DEFAULT current_date`; `fromclient_id` comes from the `FROM_CLIENT_ID` env var on the server and is not on the form. If `FROM_CLIENT_ID` is unset or doesn't match an existing client, create fails with "Could not create Delivery Docket: sender client is not configured" and the problem is logged. On success it goes to the **new docket's detail page**.
 - Edit: to-client (combobox) and status.
 - Detail (basic): date, docket number, from-client, to-client, status. (The print layout and order management replace this in spec 03.)
 
@@ -96,7 +97,7 @@ The new build maps **Postgres SQLSTATE codes** to web3's friendly wording in one
 
 | SQLSTATE | Meaning | Message (same wording as web3) |
 |---|---|---|
-| `23503` on delete | FK violation | "cannot delete <table> that still have <referencing table>", e.g. "cannot delete clients that still have orders" |
+| `23503` on delete | FK violation | "cannot delete <table> that still have <referencing table>", using display names, not table names (e.g. "cannot delete clients that still have orders", "cannot delete orders that still have order items", "cannot delete delivery dockets that still have orders", "cannot delete product types that still have products") |
 | `23502` | not null | "please provide a <column without _id>" |
 | `23514` | check | "please provide a valid <column>" |
 | `22P02` | invalid integer | "please provide a valid integer" |
@@ -111,10 +112,11 @@ Any other error is logged on the server, and the user sees "Something went wrong
 
 ## Design
 
-- **Schema** (Atlas migrations, written from the author's production schema dump; conventions O6):
+- **Schema** (Atlas migrations, written from v1's schema in `../fib-om-v2-reference/migrations/`, checked against the production MySQL dump for columns the import needs; conventions O6):
   - `clients`, `product_categories`, `product_types`, `product_sizes`, `product_media`, `products`, `orders`, `order_items`, `delivery_dockets`, with snake_case columns mapping 1:1 to the legacy columns in O2.1 (e.g. `address_shipping`, `label_use_part_number`, `millimetres_per_pleat`, `pleat_spacing`).
   - Identity primary keys (so legacy ids can be inserted with `OVERRIDING SYSTEM VALUE` in spec 04).
   - `products.category_id/type_id/size_id/media_id` `NOT NULL`, FK `ON DELETE RESTRICT`.
+  - Reference data: only the required fields listed above are `NOT NULL`; every other text column is nullable (legacy had them all `NOT NULL`).
   - `orders.client_id` `NOT NULL`; `orders.delivery_docket_id` nullable; `orders.date DEFAULT current_date`; `orders.status` enum `order_status` (`new | complete | archived`), default `new`.
   - `order_items.order_id`, `product_id` `NOT NULL`, FK `ON DELETE RESTRICT`; required fields `NOT NULL`; the 7 `<stage>_status` booleans `NOT NULL DEFAULT false`; category enums as Postgres enums.
   - `delivery_dockets.status` enum `docket_status` (`current | archived`) default `current`; `date DEFAULT current_date`; `docket_number` a generated column `lpad(id::text, 6, '0')`; `from_client_id`, `to_client_id` FK to clients.
@@ -122,6 +124,7 @@ Any other error is logged on the server, and the user sees "Something went wrong
   - No unique constraint on order number; no `CHECK` constraints on quantities or dimensions.
   - `pg_trgm` extension and GIN trigram indexes on every text column used by a filter or combobox search.
   - Display views `products_v`, `orders_v`, `order_items_v`, `delivery_dockets_v` with the joined names (O5). Derived formula columns are added in spec 03.
+- **Error display names:** `lib/db/errors.ts` maps table names to display names (`clients` → "clients", `orders` → "orders", `order_items` → "order items", `delivery_dockets` → "delivery dockets", `products` → "products", `product_*` → "product categories/types/sizes/media").
 - **Shared building blocks:** `components/data-table/` (TanStack Table, `nuqs` URL state, filter bar with "Add filter", pagination), `ReferenceCombobox` (server search Route Handler or Server Action, debounce, 25 per page), a form helper wiring react-hook-form + zod + Server Action + toasts, a `ConfirmDialog`, `lib/db/errors.ts`, and print utilities.
 - **Query modules:** one file per resource in `lib/db/queries/`, following O5 (allowlisted filters/sorts, `count(*) OVER ()`, parameterised).
 - **Server Actions** check the session first (spec 01) and revalidate the list and detail paths they affect.
@@ -160,6 +163,10 @@ Automated (unit, integration against Postgres with migrations applied, or Playwr
 28. **AC-28** Creating a delivery docket requires to-client, defaults status to Current, sets `from_client_id` to `FROM_CLIENT_ID` (no from-client field on the form), and redirects to the new docket's detail page; editing offers only to-client and status.
 29. **AC-29** In print media the sidebar, top bar, toolbars and screen-only elements are hidden, print-only elements are shown, text is black, and `@page` is A4.
 30. **AC-30** An axe scan of each list, detail and form page reports no critical violations, and every form control has an accessible label.
+31. **AC-31** Saving a client with only a name succeeds and stores every empty optional field as NULL; saving a client, product type or product media without its required fields shows inline errors and writes nothing.
+32. **AC-32** The order form's docket combobox lists only dockets for the selected client; posting another client's docket to the Server Action is refused with "delivery docket belongs to another client".
+33. **AC-33** With `FROM_CLIENT_ID` unset, or set to an id with no client, creating a docket shows "Could not create Delivery Docket: sender client is not configured" and writes nothing.
+34. **AC-34** A signed-in user can't delete their own account, and the last remaining user can't be deleted; both show their message and delete nothing.
 
 ## Out of scope
 
