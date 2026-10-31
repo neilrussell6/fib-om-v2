@@ -6,10 +6,10 @@
  * The password comes from CREATE_USER_PASSWORD or an interactive prompt,
  * never from the command line (it would end up in shell history).
  */
-import { createInterface } from "node:readline/promises";
 import bcrypt from "bcryptjs";
 import { createUser, UserExistsError } from "@/lib/db/queries/users";
 import { emailSchema, passwordSchema } from "@/lib/validation/auth";
+import { readHiddenLine } from "./lib/read-hidden";
 
 const BCRYPT_COST = 12;
 
@@ -24,12 +24,8 @@ async function readPassword(): Promise<string> {
   if (!process.stdin.isTTY) {
     fail("No password: set CREATE_USER_PASSWORD or run interactively.");
   }
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    return await rl.question("Password: ");
-  } finally {
-    rl.close();
-  }
+  // Typed input is not echoed, so the password never appears on screen or in scrollback.
+  return readHiddenLine("Password: ");
 }
 
 async function main() {

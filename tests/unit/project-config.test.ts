@@ -101,6 +101,15 @@ describe("AC-17 deploy.yml", () => {
     expect(w.jobs["deploy-production"].environment).toBe("production");
   });
 
+  it("preview: runs only after CI succeeds on a push to main, deploying the tested commit (review 01 finding 5)", () => {
+    const w = wf() as Workflow & { on: { workflow_run?: { workflows: string[]; types: string[]; branches: string[] } } };
+    expect(w.on.workflow_run).toEqual({ workflows: ["CI"], types: ["completed"], branches: ["main"] });
+    expect(Object.keys(w.on)).not.toContain("push");
+    const job = w.jobs["deploy-preview"] as unknown as { if: string };
+    expect(job.if).toContain("github.event.workflow_run.conclusion == 'success'");
+    expect(JSON.stringify(w.jobs["deploy-preview"].steps)).toContain("github.event.workflow_run.head_sha");
+  });
+
   it("preview: guards first deploy, migrates before build, deploys prebuilt, aliases STAGING_DOMAIN", () => {
     const t = JSON.stringify(wf().jobs["deploy-preview"].steps);
     const at = (s: string) => t.indexOf(s);

@@ -152,7 +152,7 @@ Browser ──► Vercel (Next.js App Router)
 | Auth | Auth.js (NextAuth v5) Credentials provider with bcrypt, JWT cookie session (8-hour rolling) | Matches today's email/password model. No third-party sign-up needed. JWT avoids a sessions table. |
 | URL state | `nuqs` for list filters, sort and pagination in the query string | Filters can be bookmarked or shared, as react-admin allows today |
 | Tests | Vitest (unit and integration against a real Postgres), Playwright (end-to-end) | `.gitignore` already expects Playwright output |
-| Hosting / CI | Vercel, deployed **only by GitHub Actions** (`vercel build` + `vercel deploy --prebuilt`): staging on every push to `main`, production on manual dispatch (O7) | Migrations and deploys run in one controlled pipeline, in order |
+| Hosting / CI | Vercel, deployed **only by GitHub Actions** (`vercel build` + `vercel deploy --prebuilt`): staging on every push to `main` that passes CI, production on manual dispatch (O7) | Migrations and deploys run in one controlled pipeline, in order |
 
 ### O4.1 Repo layout
 
@@ -224,7 +224,7 @@ Schema migrations and Vercel deployments **only ever run from GitHub Actions**. 
 | Env | Trigger | Vercel target | Neon branch | URL |
 |---|---|---|---|---|
 | Local | `npm run dev` | n/a | local Postgres container (or a personal Neon branch) | `http://localhost:3000` |
-| Staging | every push to `main` | preview, aliased to a fixed staging domain | `staging` | `https://staging.fibatron.com` |
+| Staging | every push to `main` that passes CI | preview, aliased to a fixed staging domain | `staging` | `https://staging.fibatron.com` |
 | Production | manual **Actions → Deploy → Run workflow** (`workflow_dispatch`) | production (`--prod`) | `production` | `https://www.fibatron.com` (primary); `fibatron.com` redirects to it with Vercel's default `308`. The notcher calls `https://fibatron.com/vw-notcher-api` and must be proven to follow that redirect (spec 04) |
 
 There's a fixed `staging` Neon branch rather than one per preview, because CI applies migrations to a known database before each deploy.
@@ -249,7 +249,7 @@ There's a fixed `staging` Neon branch rather than one per preview, because CI ap
 ### O7.3 CI workflows
 - **`ci.yml`** runs on pushes to `main` (and on pull requests, if any are opened): `npm ci`, typecheck, lint, unit tests; `ariga/setup-atlas@v0`, `atlas migrate validate`, `atlas migrate lint --latest 1`; then integration tests against a `postgres` service container after `atlas migrate apply`.
 - **`deploy.yml`**:
-  - **`deploy-preview`** on `push` to `main`, GitHub environment `staging`: (1) fail if no production deployment exists yet (Vercel auto-promotes a new project's first deployment); (2) checkout, set the git author for Vercel, `setup-node`, `npm i -g vercel`; (3) `vercel pull --environment=preview`; (4) `ariga/setup-atlas@v0`, then `ariga/atlas-action/migrate/apply@v1` with `dir: file://db/migrations`, `url: ${{ secrets.DATABASE_URL_UNPOOLED }}`, `revisions-schema: public`; (5) `vercel build`, `vercel deploy --prebuilt`; (6) alias to the staging domain through the Vercel API (`vercel alias` fails with team-scoped tokens).
+  - **`deploy-preview`** when CI succeeds on a push to `main` (`workflow_run`, checking out the tested commit), GitHub environment `staging`: (1) fail if no production deployment exists yet (Vercel auto-promotes a new project's first deployment); (2) checkout, set the git author for Vercel, `setup-node`, `npm i -g vercel`; (3) `vercel pull --environment=preview`; (4) `ariga/setup-atlas@v0`, then `ariga/atlas-action/migrate/apply@v1` with `dir: file://db/migrations`, `url: ${{ secrets.DATABASE_URL_UNPOOLED }}`, `revisions-schema: public`; (5) `vercel build`, `vercel deploy --prebuilt`; (6) alias to the staging domain through the Vercel API (`vercel alias` fails with team-scoped tokens).
   - **`deploy-production`** on `workflow_dispatch`, environment `production`: the same with `--environment=production`, migrations against the production branch, `vercel build --prod`, `vercel deploy --prebuilt --prod`.
   - Migrations run *before* build/deploy and stop the job if they fail. The very first deploy must be a manual production run.
 - **Data scripts** (`snapshot.sh`, `seed-old`, `seed-dummy`) never run in CI; an operator runs them from a trusted machine (spec 04).

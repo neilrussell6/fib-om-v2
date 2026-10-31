@@ -1,10 +1,13 @@
 name: Deploy
 
 # Migrations and deploys only ever run here (overview O7). Vercel's Git auto-deploys are off.
-# - push to main      → staging (preview build, aliased to STAGING_DOMAIN, Neon "staging" branch)
-# - manual dispatch   → production (Neon "production" branch)
+# - CI passes on a push to main → staging (preview build, aliased to STAGING_DOMAIN, Neon "staging" branch)
+# - manual dispatch              → production (Neon "production" branch)
+# Staging only ever receives a commit that CI has tested.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -18,7 +21,10 @@ env:
 
 jobs:
   deploy-preview:
-    if: github.event_name == 'push'
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     environment: staging
     steps:
@@ -39,6 +45,9 @@ jobs:
           fi
 
       - uses: actions/checkout@v4
+        with:
+          # Deploy exactly the commit CI tested.
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set git author for Vercel
         run: |

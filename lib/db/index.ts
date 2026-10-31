@@ -1,5 +1,6 @@
 import { neon, neonConfig, Pool, type PoolClient } from "@neondatabase/serverless";
 import ws from "ws";
+import { usesLocalProxy } from "./local-proxy";
 
 /**
  * One driver everywhere: @neondatabase/serverless. On Neon it talks to Neon's
@@ -14,16 +15,12 @@ function databaseUrl(): string {
   return url;
 }
 
-function isNeonHost(url: string): boolean {
-  return new URL(url).hostname.endsWith(".neon.tech");
-}
-
 let configured = false;
 function configure(): void {
   if (configured) return;
   configured = true;
   neonConfig.webSocketConstructor = ws;
-  if (!isNeonHost(databaseUrl())) {
+  if (usesLocalProxy(databaseUrl())) {
     neonConfig.fetchEndpoint = (host) => `http://${host}:${LOCAL_PROXY_PORT}/sql`;
     neonConfig.useSecureWebSocket = false;
     neonConfig.wsProxy = (host) => `${host}:${LOCAL_PROXY_PORT}/v2`;

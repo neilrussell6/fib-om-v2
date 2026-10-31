@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { cache } from "react";
 import Credentials from "next-auth/providers/credentials";
 import { verifyCredentials } from "@/lib/auth/credentials";
 import { sessionConfig } from "@/lib/auth/session-config";
@@ -34,11 +35,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 });
 
-/** Server-side session check for layouts and Server Actions (defence in depth behind proxy.ts). */
-export async function requireSession() {
+/** The current session, read once per request however many components ask for it. */
+const getSession = cache(async () => {
   // Mark the render as request-time before Auth.js touches crypto (Cache Components).
   await connection();
-  const session = await auth();
+  return auth();
+});
+
+/** Server-side session check for layouts and Server Actions (defence in depth behind proxy.ts). */
+export async function requireSession() {
+  const session = await getSession();
   if (!session?.user) redirect("/login");
   return session;
 }
