@@ -42,7 +42,7 @@ Schema migrations and deploys only ever run from GitHub Actions. A push to `main
 
 ## Tasks
 
-The spec became a checklist of 48 tasks in eight groups: scaffold, database access and migrations, passwords and the `create-user` script, authentication, the app shell and theme, tests, CI and deploy, and the manual setup of Neon, GitHub and Vercel. Each task names the acceptance criterion it serves, so every criterion maps to something buildable.
+The spec became a checklist of 51 tasks in eight groups: scaffold, database access and migrations, passwords and the `create-user` script, authentication, the app shell and theme, tests, CI and deploy, and the manual setup of Neon, GitHub and Vercel. Each task names the acceptance criterion it serves, so every criterion maps to something buildable.
 
 Reviewing the list took four rounds, and each round found a problem that only showed once the work was laid out step by step. The first noticed that a dozen acceptance criteria rely on Playwright, but nothing would run those tests: CI only ran unit and integration tests, and there was no local database. The author added a docker-compose Postgres and a Playwright step in CI, and the spec's AC-16 grew to match.
 
