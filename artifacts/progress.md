@@ -31,6 +31,15 @@ Shared background for all four features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261031-200849 — Phase 3, step "run tests": PASS — `logs/01-users-auth/20261031-200849--tests--PASS.md`
 - 20261031-200949 — Phase 3, step "commit": done — commit `276860d`
 - 20261031-200949 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/01-users-auth/20261031-200949--book-changelog.md`
+- 20261031-205019 — Phase 4, step "review" + "PR validation": FAIL — `logs/01-users-auth/20261031-205019--review--FAIL.md`
+- 20261031-205019 — Phase 4, step "commit review": done — commit `932fe84`
+- 20261031-205019 — Phase 4, step "request changes": done — findings 1, 2, 4, 5 fixed in code; 3 recorded in the spec
+- 20261031-205019 — Phase 4, step "revision": done — `logs/01-users-auth/20261031-205330--revision-changelog.md`
+- 20261031-205019 — Phase 4, step "commit revision": done — commit `f428a2b`
+- 20261031-205602 — Phase 4, step "review" + "PR validation": PASS — `logs/01-users-auth/20261031-205602--review--PASS.md`
+- 20261031-205602 — Phase 4, step "commit review": done — commit `2f46d49`
+- 20261031-205620 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/01-users-auth/20261031-205620--book-changelog.md`
+- 20261031-205620 — Feature workflow complete (phases 1–4). Open: operational AC-20–22 (first production deploy, Vercel env vars, legacy DB password rotation); CI and deploy workflows not yet executed on GitHub.
 
 ## 02-basic-crud
 

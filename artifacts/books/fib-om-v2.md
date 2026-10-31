@@ -87,6 +87,35 @@ Running the suite against a real database turned up three problems the unit test
 
 Two browser tests were wrong rather than the code, and the author agreed to change them. Both looked for "the" alert on the page, but Next.js renders its own route announcer with `role="alert"`, so the lookup now stays inside the login form. The sign-in limit test also fired its eleven attempts without waiting for each reply; every wrong attempt shows the same message, so the check after each one passed immediately on the previous message. A probe confirmed the limiter itself: ten refusals at about 0.75 seconds each, then the eleventh, with the correct password, refused in 125 milliseconds without checking it. The final run was clean: 121 tests, typecheck, lint and build.
 
+## Review
+
+With every test green, the review read the code against the spec once more, looking for what tests don't catch. It found two medium problems and three small ones, and the author asked for all five to be dealt with.
+
+The more serious one was in the database client. To use the local Neon proxy, the code switched to plain HTTP and unencrypted WebSockets whenever the database host *wasn't* Neon. That was the wrong way round for safety: a mistyped production host would quietly send credentials unencrypted instead of failing. The rule was turned into an allowlist, so only explicitly local hosts get the insecure mode:
+
+```ts
+export function usesLocalProxy(databaseUrl: string): boolean {
+  const host = new URL(databaseUrl).hostname.toLowerCase();
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "[::1]" ||
+    host === "::1" ||
+    host === "localtest.me" ||
+    host.endsWith(".localtest.me")
+  );
+}
+```
+
+The second was in `create-user`: the password prompt echoed what was typed, leaving it on screen and in the terminal's scrollback. It now reads the password in raw mode without echo.
+
+The smaller ones:
+- **Session read:** the layout read the session twice per page; React's `cache()` now makes that once.
+- **Staging gate:** staging deployed on every push whether or not CI passed. It now waits for a successful CI run and deploys exactly the commit CI tested.
+- **Email constraint:** a lowercase-email database check broke the project's "no extra constraints" convention. The author kept it as a deliberate exception and recorded why in the spec.
+
+The re-review found nothing new, and the author passed it. One thing remains unproven: the CI and deploy workflows have only been checked as files, since nothing has been pushed yet. They'll get their first real run when the Neon, GitHub and Vercel setup is done and the first production deploy goes out.
+
 ---
 
 # 2. Basic CRUD (`02-basic-crud`)
