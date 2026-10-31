@@ -15,7 +15,7 @@ Three scripts to get data into the new system, run by an operator from a trusted
 
 ## User-visible behaviour
 
-For staff, after `seed-old` runs: every legacy client and product-catalogue record (except orphaned products) appears in the new app with the same id and the same values (cleaned as below). Orders, order items and delivery dockets are empty. Open orders were closed in the old system before cutover and are not re-entered.
+For staff, after `seed-old` runs: every legacy client and product-catalogue record (except orphaned products and records missing a required field) appears in the new app with the same id and the same values (cleaned as below). Orders, order items and delivery dockets are empty. Open orders were closed in the old system before cutover and are not re-entered.
 
 For developers and operators:
 
@@ -26,7 +26,7 @@ For developers and operators:
   - Never writes to the source; exits non-zero with a clear message if `SOURCE_MYSQL_URL` is unset or `mysqldump` fails.
 - **`scripts/seed-old.ts --target <local|staging|production> <snapshot file>`** (`npm run seed:old -- …`)
   - Restores the snapshot into a scratch MySQL container on the operator's machine (`SCRATCH_MYSQL_URL`, a `mysql:5.7` container, matching production), reads the reference tables from it, maps them to the new schema, and writes them to the target (`DATABASE_URL_UNPOOLED`). `--target` is required and only labels the target for the safety guards; the connection always comes from `DATABASE_URL_UNPOOLED`.
-  - Prints a summary: rows copied per table, orphaned products skipped (with ids), `show_*` flags dropped, sequence values set, and the verification result.
+  - Prints a summary: rows copied per table, orphaned products and records missing a required field skipped (with ids), categories v1 doesn't know (flags off), sequence values set, and the verification result.
 - **`scripts/seed-dummy.ts --target <local|staging>`** (`npm run seed:dummy -- --target …`)
   - **Wipes and replaces** all app data: truncates every app table except `users` (so staff can still log in) and the Atlas revisions table, then fills them with synthetic data. **Refuses `--target production`**, and refuses to run without `--target`.
 - **`seed-old --wipe-orders`**: needed to reload real reference data into a database that has (dummy) orders, e.g. staging after `seed-dummy`. Deletes all orders, order items and delivery dockets first. Rejected with `--target production`.
@@ -92,8 +92,8 @@ Production MySQL tables (Doctrine entity names): `order_data` (orders), `order_p
 
 ### Notcher production capture (moved here from spec 03)
 - **`scripts/notcher-capture.sh`:** calls `https://fibatron.com/vw-notcher-api?key=…` on production with a valid key (from the session environment, never logged) and saves the status, headers and raw body into the snapshot directory. `snapshot.sh` runs it in the same minute as the `mysqldump`.
-- **`scripts/notcher-capture-check.ts <snapshot dir>`:** restores the snapshot into the scratch MySQL, loads the captured items (their orders, items, clients, products and lookups, mapped with the same code as `seed-old` plus a capture-only mapping for orders and order items) into a throwaway local Postgres with the new schema, calls the new route (spec 03), and diffs the raw bytes and `Content-Type` against the capture. The only allowed differences are the removed fields (`markup`, `price*`, `invoice`), listed explicitly in the script. Any other difference is fixed in spec 03's transform and its golden file updated.
-- **Docket test capture:** because open orders are closed before cutover, a normal capture may contain no item on a delivery docket. Before cutover, by arrangement with the business, a test order (New, a notcher product, frame not done) is put on a delivery docket in production, one capture is taken, and the test order is removed. The capture check must confirm `order.deliverydocket` is `{}`.
+- **`scripts/notcher-capture-check.ts <snapshot dir>`:** restores the snapshot into the scratch MySQL, loads the captured items (their orders, items, clients, products and lookups, mapped with the same code as `seed-old` plus a capture-only mapping for orders and order items) into a throwaway local Postgres with the new schema, calls the new route (spec 03), and diffs the raw bytes and `Content-Type` against the capture. The only allowed differences are the removed fields (`markup`, `price*`, `invoice`) and `order.deliverydocket` (the notcher machine ignores docket data), listed explicitly in the script. Any other difference is fixed in spec 03's transform and its golden file updated.
+- **No docket test capture:** the notcher machine doesn't use docket data, so `order.deliverydocket` isn't checked against production and nothing is ever written to production.
 - The capture check runs on the trusted machine (it uses real data), before staging UAT and again on cutover day before the DNS switch.
 
 ### Snapshot handling
@@ -106,7 +106,7 @@ Production MySQL tables (Doctrine entity names): `order_data` (orders), `order_p
 - The production notcher software calls **`https://fibatron.com`** (the apex domain, over HTTPS), i.e. `https://fibatron.com/vw-notcher-api?key=…`. Its setting stays untouched. Its source IP is not stable, so there is no Firewall IP allowlist; the feed is protected by its `key` only.
 - `fibatron.com` serves nothing besides this app, so nothing else needs moving or rewriting.
 - **Vercel default (decided 2026-10-31):** `www.fibatron.com` is the primary production domain and `fibatron.com` redirects to it with a `308`, for every path including the feed. The notcher's request to `https://fibatron.com/vw-notcher-api?key=…` therefore gets a `308` to `https://www.fibatron.com/vw-notcher-api?key=…` (path and query kept) and must follow it to get the data.
-- **This must be proven before cutover** (AC-19, run (d)): on staging, a second domain is set up to redirect (`308`) to the staging domain the same way, the notcher is pointed at it, and it must read the feed successfully.
+- **This must be proven before cutover** (AC-18, run (d)): on staging, a second domain is set up to redirect (`308`) to the staging domain the same way, the notcher is pointed at it, and it must read the feed successfully.
 - **Fallback if the notcher does not follow the redirect:** remove the domain-level redirect and instead redirect `fibatron.com` → `www` with a host-based rule in `next.config` that excludes `/vw-notcher-api`, so the feed answers `200` directly on `fibatron.com`. Repeat run (d) against that setup before cutover.
 - Change only the `fibatron.com` A record (Vercel's apex IP) and the `www` CNAME. Leave MX/TXT records (email, SPF/DKIM) alone.
 - Lower the DNS TTL to 300s at least 48h before cutover. Add the domain in Vercel and wait for the certificate to be issued before switching DNS, so the software never sees a TLS error.
@@ -114,8 +114,8 @@ Production MySQL tables (Doctrine entity names): `order_data` (orders), `order_p
 
 **Steps**
 1. **Build:** specs 01–03 complete on staging. Only `staging.fibatron.com` points at the new app; production DNS (`fibatron.com`) keeps pointing at the PHP site until the switchover, which happens only after extensive testing on staging. Reference data loaded into `staging` by the operator (`snapshot.sh`, then `seed-old --target staging --wipe-orders`) from a recent snapshot.
-2. **Notcher capture checks:** run the capture check on the staging snapshot, and take the docket test capture by arrangement with the business.
-3. **UAT:** staff check every screen against web3 (checklist built from specs 01–03), and the notcher machine is tested against the staging URL, including with an empty feed and with rows in a different order (AC-19).
+2. **Notcher capture check:** run the capture check on the staging snapshot.
+3. **UAT:** staff check every screen against web3 (checklist built from specs 01–03), and the notcher machine is tested against the staging URL, including with an empty feed and with rows in a different order (AC-18).
 4. **Agree a cutover point with the business.** Staff **close all open orders in the old system** before cutover; they are not re-entered.
 5. **Cutover day:**
    - freeze client and product edits in the old system
@@ -125,7 +125,7 @@ Production MySQL tables (Doctrine entity names): `order_data` (orders), `order_p
    - create the staff users (`create-user`, then the Users screen)
    - point `fibatron.com` (A record) and `www.fibatron.com` (CNAME) at Vercel; the software's configured URL does **not** change
    - confirm one live request from the notcher software succeeds before going further
-6. **Keep the old PHP site available for 30 days** for historical order lookups, at `old.fibatron.com` (added before the switchover, pointing at the PHP server, with a certificate). There is no technical lock: staff are told not to edit it. After 30 days `old.fibatron.com` is removed.
+6. **Keep the old PHP site available for 30 days** for historical order lookups, at `old.fibatron.com` (added before the switchover: DNS pointing at the PHP server, a certificate, and the PHP server's web server config updated to serve the site for that host name, since it selects the site by host). There is no technical lock: staff are told not to edit it. After 30 days `old.fibatron.com` is removed.
 7. **Decommission (production):** take a final `mysqldump` of production MySQL into cold storage; shut down the PHP app and its MySQL database; remove `old.fibatron.com`; delete the working snapshot files from the trusted machine.
 8. **Tidy up v1 (never live):** shut down v1's DigitalOcean droplets and managed Postgres; rotate the DigitalOcean database password and v1's JWT secret if they still run until then; delete `migrate-old-data/.env.tpl` with the package; archive the `fib-om` repo (read-only) with a README pointing at `fib-om-v2`.
 
@@ -151,14 +151,14 @@ Automated (integration tests against local containers: MySQL 5.7 as source and s
 
 Operational (recorded check, not CI):
 
-16. **AC-16** The production capture check passed on a capture taken with the staging load and again on cutover day: the new route's bytes equal production's for the captured items, except the removed fields, and the `Content-Type` matches.
-17. **AC-17** The docket test capture was taken and the capture check confirmed `order.deliverydocket` is `{}`; the test order was removed from production afterwards.
-18. **AC-18** Staging has been loaded from the trusted machine; the verification passed, and a side-by-side spot check of 10 clients and 10 products against the old UI matches.
-19. **AC-19** UAT sign-off by staff against the checklist, and the notcher machine read the staging URL successfully in three recorded runs: (a) an empty feed `[]`, (b) a feed with several items, (c) the same items returned in a different order (via a temporary staging-only change or fixture), (d) the feed reached through a `308` domain redirect set up like production's `fibatron.com` → `www`, with the key in the query string. If (a) fails, cutover must enter at least one order before switching DNS; if (c) fails, `ORDER BY op.id` is confirmed as required; if (d) fails, production uses the fallback (feed path exempted from the redirect) and (d) is repeated against it.
-20. **AC-20** Before cutover: the `fibatron.com` DNS TTL was lowered to 300s at least 48h ahead; `www.fibatron.com` (primary) and `fibatron.com` are added in Vercel with certificates issued; and against the production deployment before the DNS switch (e.g. `curl --resolve`), `https://fibatron.com/vw-notcher-api?key=<key>` behaves as proven in AC-19 run (d): either a `308` to the same path and query on `www` that then returns `200` with the feed, or (fallback) a direct `200`. MX/TXT records are unchanged after the switch.
-21. **AC-21** On cutover day all open orders were closed in the old system first, production was loaded and verified, and one live request from the notcher software succeeded before any legacy component was decommissioned.
-22. **AC-22** After 30 days: a final `mysqldump` of production is in cold storage; the PHP app and its MySQL database are shut down; `old.fibatron.com` is removed; working snapshot files are deleted from the trusted machine.
-23. **AC-23** Before the switchover `old.fibatron.com` serves the PHP site over HTTPS; v1's DigitalOcean resources are shut down and the `fib-om` repo is archived with a pointer README (v1 tidy-up, any time after cutover).
+16. **AC-16** The production capture check passed on a capture taken with the staging load and again on cutover day: the new route's bytes equal production's for the captured items, except the removed fields and `order.deliverydocket`, and the `Content-Type` matches.
+17. **AC-17** Staging has been loaded from the trusted machine; the verification passed, and a side-by-side spot check of 10 clients and 10 products against the old UI matches.
+18. **AC-18** UAT sign-off by staff against the checklist, and the notcher machine read the staging URL successfully in three recorded runs: (a) an empty feed `[]`, (b) a feed with several items, (c) the same items returned in a different order (via a temporary staging-only change or fixture), (d) the feed reached through a `308` domain redirect set up like production's `fibatron.com` → `www`, with the key in the query string. If (a) fails, cutover must enter at least one order before switching DNS; if (c) fails, ordering by item id is confirmed as required; if (d) fails, production uses the fallback (feed path exempted from the redirect) and (d) is repeated against it.
+19. **AC-19** Before cutover: the `fibatron.com` DNS TTL was lowered to 300s at least 48h ahead; `www.fibatron.com` (primary) and `fibatron.com` are added in Vercel with certificates issued; and against the production deployment before the DNS switch (e.g. `curl --resolve`), `https://fibatron.com/vw-notcher-api?key=<key>` behaves as proven in AC-18 run (d): either a `308` to the same path and query on `www` that then returns `200` with the feed, or (fallback) a direct `200`. MX/TXT records are unchanged after the switch.
+20. **AC-20** On cutover day all open orders were closed in the old system first, production was loaded and verified, and one live request from the notcher software succeeded before any legacy component was decommissioned.
+21. **AC-21** After 30 days: a final `mysqldump` of production is in cold storage; the PHP app and its MySQL database are shut down; `old.fibatron.com` is removed; working snapshot files are deleted from the trusted machine.
+22. **AC-22** Before the switchover, `https://old.fibatron.com` serves the PHP site (valid certificate, staff can log in and look up an order).
+23. **AC-23** v1 tidy-up (any time after cutover): v1's DigitalOcean droplets and managed Postgres are shut down, and the `fib-om` repo is archived with a README pointing at `fib-om-v2`.
 
 ## Out of scope
 
@@ -171,7 +171,7 @@ Operational (recorded check, not CI):
 
 ## Open questions
 
-1. ~~**OQ-1 Notcher host**~~ — resolved 2026-10-31: `https://fibatron.com`, which serves nothing besides this app; source IP not stable, so no allowlist. Vercel's default `fibatron.com` → `www` redirect is used, provided the notcher is proven to follow it (AC-19 run (d)); otherwise the feed path is exempted. The `key` value is handed over securely at deploy time, not in this doc.
+1. ~~**OQ-1 Notcher host**~~ — resolved 2026-10-31: `https://fibatron.com`, which serves nothing besides this app; source IP not stable, so no allowlist. Vercel's default `fibatron.com` → `www` redirect is used, provided the notcher is proven to follow it (AC-18 run (d)); otherwise the feed path is exempted. The `key` value is handed over securely at deploy time, not in this doc.
 2. ~~**OQ-2 `seed-dummy` on staging**~~ — resolved 2026-10-31: wipe and replace all app data (users kept). `seed-old --wipe-orders` (never on production) reloads real reference data afterwards.
 3. ~~**OQ-3 Sequence start**~~ — resolved 2026-10-31: `seed-old` sets them from the legacy max ids in the snapshot (step 6).
 4. ~~**OQ-4 Data through CI**~~ — resolved 2026-10-31: trusted machine only; no data workflow.
