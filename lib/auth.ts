@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { cache } from "react";
 import Credentials from "next-auth/providers/credentials";
 import { verifyCredentials } from "@/lib/auth/credentials";
+import { checkSessionVersion } from "@/lib/auth/session-version";
 import { sessionConfig } from "@/lib/auth/session-config";
 import { findUserByEmail, getSessionVersion } from "@/lib/db/queries/users";
 
@@ -29,10 +30,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // version matches the user's. Sign-out bumps the version, so a cookie re-issued by a
       // request still in flight (e.g. a prefetch) is rejected; deleted users lose access too.
       // Returning null makes Auth.js clear the cookie and treat the request as signed out.
-      if (!token.sub) return null;
-      const current = await getSessionVersion(token.sub);
-      if (current === null || current !== token.sv) return null;
-      return token;
+      return checkSessionVersion(token, getSessionVersion);
     },
     session({ session, token }) {
       if (session.user) {
