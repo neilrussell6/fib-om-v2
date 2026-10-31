@@ -66,6 +66,20 @@ Shared background for all four features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261031-222527 — Phase 3, step "run tests": PASS — `logs/02-basic-crud/20261031-222527--tests--PASS.md`
 - 20261031-222527 — Phase 3, step "commit": done — commit `a3584d5`
 - 20261031-222547 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/02-basic-crud/20261031-222547--book-changelog.md`
+- 20261031-225018 — Phase 4, step "review" + "PR validation": FAIL — `logs/02-basic-crud/20261031-225018--review--FAIL.md`
+- 20261031-225018 — Phase 4, step "commit review": done — commit `1d0fe8d`
+- 20261031-225018 — Phase 4, step "request changes": done — findings 1–5 to fix; Atlas lint step to be removed
+- 20261031-234258 — Phase 4, step "revision": done — `logs/02-basic-crud/20261031-234258--revision-changelog.md` (also the sign-out race; spec 01 revised: `logs/01-users-auth/20261031-233437--spec-revision-changelog.md`)
+- 20261031-234258 — Phase 4, step "commit revision": done — commit `682f6ab`
+- 20261101-000730 — Phase 4, step "review" + "PR validation": FAIL — `logs/02-basic-crud/20261101-000730--review--FAIL.md`
+- 20261101-000730 — Phase 4, step "commit review": done — commit `5aae5d8`
+- 20261101-000730 — Phase 4, step "request changes": done — finding 1 to fix; item 2 kept
+- 20261101-001814 — Phase 4, step "revision": done — `logs/02-basic-crud/20261101-001814--revision-changelog.md`
+- 20261101-001814 — Phase 4, step "commit revision": done — commit `666f57c`
+- 20261101-003834 — Phase 4, step "review" + "PR validation": PASS — `logs/02-basic-crud/20261101-003834--review--PASS.md`
+- 20261101-003834 — Phase 4, step "commit review": done — commit `1e5e339`
+- 20261101-003855 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/02-basic-crud/20261101-003855--book-changelog.md`
+- 20261101-003855 — Feature workflow complete (phases 1–4).
 
 ## 03-custom-behaviour
 

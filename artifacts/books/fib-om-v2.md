@@ -167,6 +167,39 @@ The browser tests found more in the testing than in the app, and two of those le
 
 One loose end surfaced along the way: Atlas made `migrate lint` a paid feature, and CI still calls it.
 
+## Review
+
+The review checked its suspicions against the running app instead of the code alone, and three medium problems held up.
+- **Bad URL filters:** a mistyped date or id in a list's URL crashed the page, because the value reached Postgres as a typed parameter.
+- **Duplicate ids:** because Next.js keeps visited pages mounted, two forms could both contain an input with the id `name`, and a label could end up pointing at the hidden one.
+- **Keyboard access:** rows opened their detail page only on a mouse click.
+
+All three were fixed. Filter values are now checked against their type and ignored if they don't fit. Form, filter and paging controls take their ids from React's `useId()`. And each row's own name cell is a real link. Two smaller fixes rode along: integers are capped at the database's range, and changing an order's client clears its docket. On the author's decision, CI also stopped calling `atlas migrate lint`, which had become a paid Atlas feature.
+
+Re-running the suite then exposed a bug from the first feature. Sign-out sometimes didn't stick. Spec 01 chose rolling JWT sessions, so every request through `proxy.ts` re-issues the session cookie, and spec 02 had just switched on eleven sidebar links that Next.js prefetches in the background. A prefetch still in flight at the moment of sign-out came back afterwards and put a valid cookie back in place. Turning prefetching off for the sidebar made the failing test pass eight times out of eight, which confirmed the cause.
+
+The obvious cure, database sessions, isn't available: Auth.js refuses them for email-and-password sign-in. So the JWT gained a session version. Each user row carries a counter, the token records it at sign-in, and every request compares the two. Sign-out and a password change bump the counter, so any older cookie, however it comes back, is dead:
+
+```ts
+export async function checkSessionVersion<T extends { sub?: string | null; sv?: unknown }>(
+  token: T,
+  lookup: (userId: string) => Promise<number | null>,
+): Promise<T | null> {
+  if (!token.sub) return null;
+  let current: number | null;
+  try {
+    current = await lookup(token.sub);
+  } catch (err) {
+    console.error("Session version lookup failed; keeping the session for this request", err);
+    return token;
+  }
+  if (current === null || current !== token.sv) return null;
+  return token;
+}
+```
+
+The `try` came from the second review round. A failed lookup at first counted as a bad token and signed the user out, which would have logged everyone out during a database hiccup. The author accepted that signing out now ends a user's sessions on every device. A new test replays a cookie captured before sign-out and expects it to be refused. The final review passed with 239 unit and integration tests and 85 browser tests green.
+
 ---
 
 # 3. Custom behaviour (`03-custom-behaviour`)
