@@ -42,7 +42,7 @@ For developers and operators:
 The **production MySQL database** behind the legacy PHP app (`legacy-prod/`). (The DigitalOcean Postgres database belongs to v1, `../fib-om`, which never went live; it is not a source.) Before cutover, a full `mysqldump` (schema and data) is kept in cold storage as the archive of order history; `snapshot.sh` produces exactly this kind of dump.
 
 ### Mapping from MySQL
-- Table and column mapping starts from v1's import (`../fib-om/packages/migrate-old-data`, pgloader config) and the PHP Doctrine entities, then legacy names → snake_case (O6). The production MySQL dump the author will provide is the authority.
+- Table and column mapping starts from v1's import (`../fib-om/packages/migrate-old-data`, pgloader config) and the PHP Doctrine entities, then legacy names → snake_case (O6). The production MySQL dump the author will provide is the authority. When it arrives, check the reference-data schema built in `02-basic-crud` (from v1's files) against it: every production column the import needs must exist in the new schema; add any that are missing with a new migration (expand only).
 - v1's reference-data changes made after its import are applied by `seed-old` too, since every feature follows v1 (`../fib-om-v2-reference/migrations/data-ddl-updates.sql` and `data-dml-updates.sql`, reference-data parts only):
   - category renames (Bag → Bag Filters, Flat Panel → Flat Panel Filters, Holding Frame → Holding Frames, VForm → V Form Panel Filters)
   - the four added categories (Wire Products, Carbon Filters, Filter Units, Media)

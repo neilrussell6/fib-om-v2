@@ -59,7 +59,7 @@ Create the full database schema and give every resource plain list, detail, crea
 | Product sizes | name ↑ | name | name | name only (any other columns in v1's schema are stored and imported, but not shown or editable, as in web3) |
 | Product media | code ↑ | name, code | name, code, pleat spacing | name, code, pleat spacing (number) |
 
-- **Required fields (decided 2026-10-31):** only identifying fields are required: client name; product name, category, type, size and media; product category name; product type name and code; product size name; product media name and code. Every other reference-data field is optional (nullable; empty input is saved as NULL). The final column list is checked against v1's schema (`../fib-om-v2-reference/migrations/`) and the production MySQL dump.
+- **Required fields (decided 2026-10-31):** only identifying fields are required: client name; product name, category, type, size and media; product category name; product type name and code; product size name; product media name and code. Every other reference-data field is optional (nullable; empty input is saved as NULL). The column list comes from v1's schema (`../fib-om-v2-reference/migrations/`); `04-data-scripts` checks it against the production MySQL dump.
 - **Users:** you can't delete your own account ("You can't delete your own account"), and the last remaining user can't be deleted ("Can't delete the last user"). Passwords must be at least 12 characters (same shared zod rule as `create-user`, spec 01); they are stored only as bcrypt hashes and never displayed or returned.
 - **Product type filter (improvement):** filters on `type_id` (web3 wrongly puts the id onto `type_name`). Size and media stay as text filters on the joined names.
 
@@ -112,7 +112,7 @@ Any other error is logged on the server, and the user sees "Something went wrong
 
 ## Design
 
-- **Schema** (Atlas migrations, written from v1's schema in `../fib-om-v2-reference/migrations/`, checked against the production MySQL dump for columns the import needs; conventions O6):
+- **Schema** (Atlas migrations, written from v1's schema in `../fib-om-v2-reference/migrations/`; the check against the production MySQL dump for columns the import needs is done in `04-data-scripts`; conventions O6):
   - `clients`, `product_categories`, `product_types`, `product_sizes`, `product_media`, `products`, `orders`, `order_items`, `delivery_dockets`, with snake_case columns mapping 1:1 to the legacy columns in O2.1 (e.g. `address_shipping`, `label_use_part_number`, `millimetres_per_pleat`, `pleat_spacing`).
   - Identity primary keys (so legacy ids can be inserted with `OVERRIDING SYSTEM VALUE` in spec 04).
   - `products.category_id/type_id/size_id/media_id` `NOT NULL`, FK `ON DELETE RESTRICT`.
