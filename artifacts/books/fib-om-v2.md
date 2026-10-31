@@ -144,6 +144,29 @@ Three smaller changes followed. Each resource was split in two so progress is ea
 
 One question went back to the author: the spec wanted the schema checked against the production MySQL dump, which hasn't arrived. Rather than wait, that check moved to the data-scripts feature, where the import mapping is built anyway; this feature builds from v1's schema files.
 
+## Implementation
+
+Ten resources with the same shape of screens invited one design rather than ten copies. Each resource is described twice. The client-safe half (`lib/resources/`) lists its fields, list columns, filters and default sort; the server half (`lib/db/queries/resources.ts`) lists the table or view it reads, the columns it may write, and an allowlist of SQL fragments for each filter and sort key. Generic list, detail and form pages, one pair of Server Actions and one search endpoint serve all ten, and each route is a three-line file. The few rules that differ live in one place in the actions: hashing user passwords, stamping a docket's sender from `FROM_CLIENT_ID`, and refusing an order's docket that belongs to another client.
+
+The list query is where the allowlist matters. User input only ever reaches SQL as a parameter; identifiers and fragments come from the config, and an unknown key is an error, not a no-op:
+
+```ts
+for (const [name, raw] of Object.entries(params.filters ?? {})) {
+  const f = cfg.filters[name];
+  if (!f) throw new UnknownKeyError(`Unknown filter: ${name}`);
+  if (raw === undefined || raw.trim() === "") continue;
+  const value = raw.trim();
+  values.push(f.kind === "contains" ? likeEscape(value) : value);
+  where.push(condition(f, values.length));
+}
+```
+
+The same zod schema validates on the client (on blur) and again in the Server Action, and it's built from the field list, so the two can't drift apart.
+
+The browser tests found more in the testing than in the app, and two of those lessons are worth keeping. Next.js 16 with Cache Components keeps the page you just left mounted but hidden, so a label lookup on an edit page also found the hidden list's filter box with the same label. The fix, straight from the Next.js guide, was visibility-aware selectors. And because forms stream in behind a static shell, a test that blurs a field the instant the page loads can beat hydration, so the test retries until the form is live. The one real app bug was small: the asterisk marking a required field sat inside its label, so "Name" was announced as "Name *". It now sits outside, with `aria-required` on the field. The final run: 220 unit and integration tests and 80 browser tests, all green.
+
+One loose end surfaced along the way: Atlas made `migrate lint` a paid feature, and CI still calls it.
+
 ---
 
 # 3. Custom behaviour (`03-custom-behaviour`)

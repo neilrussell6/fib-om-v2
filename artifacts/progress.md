@@ -58,6 +58,14 @@ Shared background for all four features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261031-210456 — Phase 2, step "review tasks" + "validate tasks": PASS — `logs/02-basic-crud/20261031-210456--task-review--PASS.md`
 - 20261031-210456 — Phase 2, step "commit": done — commit `e798748`
 - 20261031-210456 — Phase 2, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/02-basic-crud/20261031-210456--book-changelog.md`
+- 20261031-215000 — Phase 3, step "write tests" + "implement feature": done — `logs/02-basic-crud/20261031-215000--implementation-changelog.md`
+- 20261031-220338 — Phase 3, step "run tests": FAIL — `logs/02-basic-crud/20261031-220338--tests--FAIL.md`
+- 20261031-220338 — Phase 3, step "fix": done — author-approved test fixes (see the FAIL log)
+- 20261031-221835 — Phase 3, step "run tests": FAIL — `logs/02-basic-crud/20261031-221835--tests--FAIL.md`
+- 20261031-221835 — Phase 3, step "fix": done — author-approved test fixes (see the FAIL log)
+- 20261031-222527 — Phase 3, step "run tests": PASS — `logs/02-basic-crud/20261031-222527--tests--PASS.md`
+- 20261031-222527 — Phase 3, step "commit": done — commit `a3584d5`
+- 20261031-222547 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/02-basic-crud/20261031-222547--book-changelog.md`
 
 ## 03-custom-behaviour
 
