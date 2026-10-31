@@ -54,6 +54,39 @@ The third round caught something more basic. The app talks to Neon through `@neo
 
 The fourth round only added small things: an explicit task for the Auth.js route handler, and a reordering so `.env.tpl` exists before the docker-compose task refers to it. Then the list passed.
 
+## Implementation
+
+The tests came first: 75 unit tests, 14 integration tests and 32 browser tests, each named after the acceptance criterion it checks. None of the code existed yet, so even the scaffold had to arrive before the tests could compile. `create-next-app` won't run in a folder that already has files, so the project was scaffolded in a scratch folder and moved in.
+
+Next.js 16.4 brought two things worth reading the bundled docs for. Middleware is now called `proxy.ts`. And the scaffold turns on Cache Components by default, which prerenders a static shell for every page and streams anything request-specific into it. That shaped the app layout: the signed-in email, the sidebar's active item and the page content all sit inside `<Suspense>` boundaries, and `/` and `/login` build as partially prerendered routes.
+
+The sign-in limit is the most self-contained piece. Every attempt runs in a transaction that takes a per-IP advisory lock, so two simultaneous requests can't both slip under the limit:
+
+```ts
+export async function checkSignInRateLimit(ip: string, now: Date = new Date()): Promise<{ allowed: boolean }> {
+  return tx(async (client) => {
+    // Serialise attempts from the same IP so concurrent requests can't both slip under the limit.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [ip]);
+    await client.query("DELETE FROM login_attempts WHERE attempted_at < $1", [new Date(now.getTime() - RETENTION_MS)]);
+    const { rows } = await client.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM login_attempts WHERE ip = $1 AND attempted_at > $2",
+      [ip, new Date(now.getTime() - SIGN_IN_WINDOW_MS)],
+    );
+    if (rows[0].n >= SIGN_IN_LIMIT) return { allowed: false };
+    await client.query("INSERT INTO login_attempts (ip, attempted_at) VALUES ($1, $2)", [ip, now]);
+    return { allowed: true };
+  });
+}
+```
+
+The sign-in Server Action calls it before Auth.js ever sees the password, so a refused attempt costs no bcrypt work at all.
+
+One theme decision came from measuring rather than reading the spec. The spec's primary blue `#0780b0` with white text measures 4.45:1, just under WCAG AA's 4.5. So buttons use the palette's dark primary `#004f6e`, and the brand blue is kept for accents, focus rings and large text.
+
+Running the suite against a real database turned up three problems the unit tests couldn't see. Every signed-in page logged that Next.js had met `crypto.getRandomValues()` while prerendering: Auth.js re-signs the session token during the render. The fix was one line in `requireSession()`, `await connection()`, which tells Next.js that this render belongs to the request. The Sign out form failed the accessibility check, because React adds a hidden input with no label to every `<form action>`; Sign out became a plain button calling the Server Action. And the local database URLs needed `sslmode=disable` and `search_path=public` before Atlas would work with the Neon proxy, which keeps its own schema in the same database.
+
+Two browser tests were wrong rather than the code, and the author agreed to change them. Both looked for "the" alert on the page, but Next.js renders its own route announcer with `role="alert"`, so the lookup now stays inside the login form. The sign-in limit test also fired its eleven attempts without waiting for each reply; every wrong attempt shows the same message, so the check after each one passed immediately on the previous message. A probe confirmed the limiter itself: ten refusals at about 0.75 seconds each, then the eleventh, with the correct password, refused in 125 milliseconds without checking it. The final run was clean: 121 tests, typecheck, lint and build.
+
 ---
 
 # 2. Basic CRUD (`02-basic-crud`)

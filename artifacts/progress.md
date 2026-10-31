@@ -25,6 +25,12 @@ Shared background for all four features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261031-172122 — Phase 2, step "review tasks" + "validate tasks": PASS — `logs/01-users-auth/20261031-172122--task-review--PASS.md`
 - 20261031-172122 — Phase 2, step "commit": done — commit `08425c5`
 - 20261031-172142 — Phase 2, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/01-users-auth/20261031-172142--book-changelog.md`
+- 20261031-174001 — Phase 3, step "write tests" + "implement feature": done — `logs/01-users-auth/20261031-174001--implementation-changelog.md`
+- 20261031-175541 — Phase 3, step "run tests": FAIL — `logs/01-users-auth/20261031-175541--tests--FAIL.md`
+- 20261031-175541 — Phase 3, step "fix": done — `logs/01-users-auth/20261031-174001--implementation-changelog.md` (plus author-approved test fixes)
+- 20261031-200849 — Phase 3, step "run tests": PASS — `logs/01-users-auth/20261031-200849--tests--PASS.md`
+- 20261031-200949 — Phase 3, step "commit": done — commit `276860d`
+- 20261031-200949 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/01-users-auth/20261031-200949--book-changelog.md`
 
 ## 02-basic-crud
 
