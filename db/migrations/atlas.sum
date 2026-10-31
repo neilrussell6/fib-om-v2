@@ -1,7 +1,8 @@
-h1:UlttjR81gN1q/IKq7yZnn4/guctPYqq7TUb7GjRunzg=
+h1:4OxsBt3lKOKPcNbNzrnp2gtpwy8cq/TOn1SNOPVPDkU=
 20261031180000_users_auth.sql h1:noeUqcF2ALRzqJj55pA+EY0K/TS0SRudbpJP7+yOzc0=
 20261031210000_reference_data.sql h1:Dzxu0UVPZAUPVNi2jesv/N71em+gXQ7tISAt9aEh5RA=
 20261031210100_orders.sql h1:0sUxlZWyKdgIJA1yXLhzygXLyWcUVXLBd9dLkFpxfes=
 20261031210200_order_items.sql h1:ctQsvmiADUeoVZFavJmOaox2+CcdvdN8A/gAvVgGC4Y=
 20261031210300_search_indexes.sql h1:lBaFRF71W2bi4oA2clYlL3Zdrc43VvcDQR0zEWQbdNs=
 20261031210400_display_views.sql h1:PGqdpy8XShgOx4GJlGxLtDjae27Snfc6wjNNvRYQvVk=
+20261031230000_session_version.sql h1:N3RcSVLMgOuARCRthzGQ4gMJQAUJtIB2VjZ2edqYRpU=

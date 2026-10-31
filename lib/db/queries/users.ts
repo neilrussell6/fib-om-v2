@@ -3,9 +3,21 @@ import type { UserRow } from "@/lib/db/types";
 
 export async function findUserByEmail(email: string): Promise<UserRow | null> {
   const rows = await sql<UserRow>`
-    SELECT id, email, password_hash, created_at FROM users WHERE email = ${email.trim().toLowerCase()}
+    SELECT id, email, password_hash, session_version, created_at FROM users WHERE email = ${email.trim().toLowerCase()}
   `;
   return rows[0] ?? null;
+}
+
+/** The user's current session version, or null if the user no longer exists. */
+export async function getSessionVersion(userId: number | string): Promise<number | null> {
+  if (!/^\d+$/.test(String(userId))) return null;
+  const rows = await sql<{ session_version: number }>`SELECT session_version FROM users WHERE id = ${userId}`;
+  return rows[0] ? Number(rows[0].session_version) : null;
+}
+
+/** Invalidates every session the user holds (sign-out, password change). */
+export async function bumpSessionVersion(userId: number | string): Promise<void> {
+  await sql`UPDATE users SET session_version = session_version + 1 WHERE id = ${userId}`;
 }
 
 export class UserExistsError extends Error {
@@ -19,7 +31,7 @@ export async function createUser(email: string, passwordHash: string): Promise<U
   try {
     const rows = await sql<UserRow>`
       INSERT INTO users (email, password_hash) VALUES (${normalised}, ${passwordHash})
-      RETURNING id, email, password_hash, created_at
+      RETURNING id, email, password_hash, session_version, created_at
     `;
     return rows[0];
   } catch (err) {

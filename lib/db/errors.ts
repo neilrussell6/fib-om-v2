@@ -38,6 +38,7 @@ export function mapDbError(err: unknown, operation: "save" | "delete"): string {
       if (e.column) return `please provide a valid ${columnName(e.column)}`;
       break;
     case "22P02":
+    case "22003":
       return "please provide a valid integer";
     case "22007":
     case "22008":

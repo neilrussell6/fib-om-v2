@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { query, tx } from "@/lib/db";
 import { mapDbError } from "@/lib/db/errors";
-import { deleteUserChecked } from "@/lib/db/queries/users";
+import { bumpSessionVersion, deleteUserChecked } from "@/lib/db/queries/users";
 import { deleteRecordById, insertRecord, updateRecord } from "@/lib/db/records";
 import { getResource, isResourceKey, type ResourceKey } from "@/lib/resources";
 import { buildSchema } from "@/lib/resources/schema";
@@ -91,6 +91,8 @@ export async function saveRecord(key: ResourceKey, id: number | string | null, i
     else {
       if (!(await updateRecord(k, id!, values))) return { ok: false, error: `${ui.singular} not found` };
       savedId = Number(id);
+      // A new password signs that user out everywhere.
+      if (k === "users" && values.password_hash !== undefined) await bumpSessionVersion(savedId);
     }
   } catch (err) {
     if (err instanceof RuleError) return { ok: false, error: err.message };

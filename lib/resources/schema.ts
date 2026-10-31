@@ -19,7 +19,12 @@ function textField(f: FieldDef) {
 }
 
 function numberField(f: FieldDef) {
-  const n = z.number({ error: "please provide a valid integer" }).int("please provide a valid integer");
+  // Postgres integer columns are 32-bit; larger values are rejected here, not by the database.
+  const n = z
+    .number({ error: "please provide a valid integer" })
+    .int("please provide a valid integer")
+    .min(-2147483648, "please provide a valid integer")
+    .max(2147483647, "please provide a valid integer");
   const toNumber = (v: unknown) => (blank(v) ? null : typeof v === "string" ? Number(v.trim()) : v);
   return f.required
     ? z.preprocess(toNumber, n.nullable().refine((v) => v !== null, REQUIRED))

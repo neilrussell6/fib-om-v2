@@ -37,6 +37,34 @@ export function queryConfig(key: string): QueryConfig {
 /** Escapes LIKE wildcards so user text matches literally. */
 const likeEscape = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
+const INT_RANGE = { integer: [-2147483648, 2147483647], bigint: [1, Number.MAX_SAFE_INTEGER] } as const;
+
+/**
+ * Whether a URL filter value fits its column type. Invalid values (a mistyped
+ * date, a non-numeric id) are ignored rather than sent to Postgres, where the
+ * cast would fail the whole page (review 02, finding 1).
+ */
+function isValidValue(f: FilterSql, value: string, options?: string[]): boolean {
+  if (f.kind === "contains") return true;
+  switch (f.cast) {
+    case "date": {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const d = new Date(`${value}T00:00:00Z`);
+      return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(value);
+    }
+    case "integer":
+    case "bigint": {
+      if (!/^-?\d+$/.test(value)) return false;
+      const n = Number(value);
+      const [min, max] = INT_RANGE[f.cast];
+      return n >= min && n <= max;
+    }
+    default:
+      // Enum columns: only the filter's own options.
+      return options ? options.includes(value) : true;
+  }
+}
+
 function condition(f: FilterSql, param: number): string {
   switch (f.kind) {
     case "contains":
@@ -65,6 +93,8 @@ export async function listRecords(key: ResourceKey, params: ListParams): Promise
     if (!f) throw new UnknownKeyError(`Unknown filter: ${name}`);
     if (raw === undefined || raw.trim() === "") continue;
     const value = raw.trim();
+    const options = ui.list.filters.find((x) => x.key === name)?.options?.map((o) => o.value);
+    if (!isValidValue(f, value, options)) continue;
     values.push(f.kind === "contains" ? likeEscape(value) : value);
     where.push(condition(f, values.length));
   }

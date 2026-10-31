@@ -2,8 +2,8 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
-import { type Control, Controller, type FieldErrors, useForm, useWatch } from "react-hook-form";
+import { useId, useTransition } from "react";
+import { type Control, Controller, type FieldErrors, useForm, type UseFormSetValue, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,9 +28,26 @@ function errorText(errors: FieldErrors<Values>, name: string): string | undefine
   return e && typeof e.message === "string" ? e.message : undefined;
 }
 
-function FieldControl({ field, control, errors }: { field: FieldDef; control: Control<Values>; errors: FieldErrors<Values> }) {
+function FieldControl({
+  field,
+  control,
+  errors,
+  idPrefix,
+  dependents,
+  setValue,
+}: {
+  field: FieldDef;
+  control: Control<Values>;
+  errors: FieldErrors<Values>;
+  /** Unique per form instance: hidden, preserved routes can hold another form with the same fields (review 02, finding 2). */
+  idPrefix: string;
+  /** Fields whose options depend on this one (cleared when it changes; review 02, finding 5). */
+  dependents: string[];
+  setValue: UseFormSetValue<Values>;
+}) {
   const error = errorText(errors, field.name);
-  const errorId = `${field.name}-error`;
+  const id = `${idPrefix}-${field.name}`;
+  const errorId = `${id}-error`;
   const aria = {
     "aria-invalid": error ? true : undefined,
     "aria-describedby": error ? errorId : undefined,
@@ -45,10 +62,10 @@ function FieldControl({ field, control, errors }: { field: FieldDef; control: Co
           control={control}
           name={field.name}
           render={({ field: f }) => (
-            <Switch id={field.name} aria-label={field.label} checked={Boolean(f.value)} onCheckedChange={(v) => f.onChange(v)} onBlur={f.onBlur} />
+            <Switch id={id} aria-label={field.label} checked={Boolean(f.value)} onCheckedChange={(v) => f.onChange(v)} onBlur={f.onBlur} />
           )}
         />
-        <Label htmlFor={field.name}>{field.label}</Label>
+        <Label htmlFor={id}>{field.label}</Label>
       </div>
     );
   }
@@ -56,7 +73,7 @@ function FieldControl({ field, control, errors }: { field: FieldDef; control: Co
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline gap-1">
-        <Label htmlFor={field.name}>{field.label}</Label>
+        <Label htmlFor={id}>{field.label}</Label>
         {/* Outside the label, so the field's accessible name is exactly its label. */}
         {field.required ? (
           <span aria-hidden="true" className="text-destructive">
@@ -71,12 +88,12 @@ function FieldControl({ field, control, errors }: { field: FieldDef; control: Co
           const value = (f.value ?? "") as string;
           switch (field.type) {
             case "number":
-              return <NumberInput id={field.name} name={f.name} value={value} onChange={f.onChange} onBlur={f.onBlur} ref={f.ref} {...aria} />;
+              return <NumberInput id={id} name={f.name} value={value} onChange={f.onChange} onBlur={f.onBlur} ref={f.ref} {...aria} />;
             case "textarea":
-              return <Textarea id={field.name} name={f.name} value={value} onChange={f.onChange} onBlur={f.onBlur} ref={f.ref} {...aria} />;
+              return <Textarea id={id} name={f.name} value={value} onChange={f.onChange} onBlur={f.onBlur} ref={f.ref} {...aria} />;
             case "select":
               return (
-                <select id={field.name} name={f.name} value={value} onChange={f.onChange} onBlur={f.onBlur} ref={f.ref} className={selectClass} {...aria}>
+                <select id={id} name={f.name} value={value} onChange={f.onChange} onBlur={f.onBlur} ref={f.ref} className={selectClass} {...aria}>
                   {field.default === undefined ? <option value="">—</option> : null}
                   {field.options?.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -88,12 +105,13 @@ function FieldControl({ field, control, errors }: { field: FieldDef; control: Co
             case "reference":
               return (
                 <ReferenceCombobox
-                  id={field.name}
+                  id={id}
                   resource={field.ref!}
                   value={value}
                   onChange={(v) => {
                     f.onChange(v);
                     f.onBlur();
+                    for (const d of dependents) setValue(d, "");
                   }}
                   clientId={field.refFilter ? (refFilterValue ?? "") : undefined}
                   allowClear={!field.required}
@@ -104,7 +122,7 @@ function FieldControl({ field, control, errors }: { field: FieldDef; control: Co
             default:
               return (
                 <Input
-                  id={field.name}
+                  id={id}
                   name={f.name}
                   type={field.type === "email" ? "email" : field.type === "password" ? "password" : field.type === "date" ? "date" : "text"}
                   autoComplete={field.type === "password" ? "new-password" : undefined}
@@ -122,7 +140,7 @@ function FieldControl({ field, control, errors }: { field: FieldDef; control: Co
         <p className="text-xs text-muted-foreground">At least 12 characters.</p>
       ) : null}
       {error ? (
-        <p id={errorId} className="text-sm text-destructive">
+        <p id={errorId} data-field-error={field.name} className="text-sm text-destructive">
           {error}
         </p>
       ) : null}
@@ -148,7 +166,8 @@ export function ResourceForm({
   const mode = id === undefined ? "create" : "edit";
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const { control, handleSubmit, setError, formState } = useForm<Values>({
+  const idPrefix = useId();
+  const { control, handleSubmit, setError, setValue, formState } = useForm<Values>({
     resolver: zodResolver(buildSchema(resourceKey, mode)) as never,
     defaultValues: initialValues(resourceKey, record),
     mode: "onBlur",
@@ -171,13 +190,24 @@ export function ResourceForm({
   const ungrouped = fields.filter((f) => !f.group);
   const groups = [...new Set(fields.filter((f) => f.group).map((f) => f.group!))];
   const busy = pending || formState.isSubmitting;
+  const dependentsOf = (name: string) => fields.filter((f) => f.refFilter?.from === name).map((f) => f.name);
+  const control_ = (f: FieldDef) => (
+    <FieldControl
+      field={f}
+      control={control}
+      errors={formState.errors}
+      idPrefix={idPrefix}
+      dependents={dependentsOf(f.name)}
+      setValue={setValue}
+    />
+  );
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex max-w-3xl flex-col gap-6">
       <div className="grid gap-4 sm:grid-cols-2">
         {ungrouped.map((f) => (
           <div key={f.name} className={cn(f.type === "textarea" && "sm:col-span-2")}>
-            <FieldControl field={f} control={control} errors={formState.errors} />
+            {control_(f)}
           </div>
         ))}
       </div>
@@ -191,7 +221,7 @@ export function ResourceForm({
                 {fields
                   .filter((f) => f.group === g)
                   .map((f) => (
-                    <FieldControl key={f.name} field={f} control={control} errors={formState.errors} />
+                    <div key={f.name}>{control_(f)}</div>
                   ))}
               </div>
             </fieldset>

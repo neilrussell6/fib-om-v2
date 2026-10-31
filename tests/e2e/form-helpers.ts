@@ -46,3 +46,8 @@ export async function confirmDelete(page: Page): Promise<void> {
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Delete", exact: true }).click();
 }
+
+/** A field's inline error message (field ids are per form instance, so select by field name). */
+export function fieldError(page: Page, field: string): Locator {
+  return page.locator(`[data-field-error="${field}"]`).filter({ visible: true });
+}

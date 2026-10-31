@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { createFixture, type Fixture, removeFixture, SENDER_CLIENT_ID } from "../helpers/fixtures";
 import { withDb } from "../helpers/test-db";
-import { confirmDelete, expectToast, fillField, pickReference, save } from "./form-helpers";
+import { confirmDelete, expectToast, fieldError, fillField, pickReference, save } from "./form-helpers";
 
 let fx: Fixture;
 test.beforeAll(async () => {
@@ -42,10 +42,10 @@ test("AC-15 / AC-31 required fields show an inline error on blur and nothing is 
   await expect(async () => {
     await name.focus();
     await name.blur();
-    await expect(page.locator("#name-error")).toHaveText(/required/i, { timeout: 1000 });
+    await expect(fieldError(page, "name")).toHaveText(/required/i, { timeout: 1000 });
   }).toPass();
   await save(page);
-  await expect(page.locator("#code-error")).toHaveText(/required/i);
+  await expect(fieldError(page, "code")).toHaveText(/required/i);
   await expect(page).toHaveURL(/\/product-types\/new$/);
 });
 
@@ -53,7 +53,7 @@ test("AC-31 client and product media without required fields show inline errors"
   for (const [path, ids] of [["/clients/new", ["name"]], ["/product-media/new", ["name", "code"]]] as const) {
     await page.goto(path);
     await save(page);
-    for (const id of ids) await expect(page.locator(`#${id}-error`), `${path} ${id}`).toBeVisible();
+    for (const id of ids) await expect(fieldError(page, id), `${path} ${id}`).toBeVisible();
   }
 });
 
@@ -114,7 +114,7 @@ test("AC-23 the product form requires category, type, size and media", async ({ 
   await page.goto("/products/new");
   await fillField(page, "Name", `${fx.tag} needs refs`);
   await save(page);
-  for (const id of ["category_id", "type_id", "size_id", "media_id"]) await expect(page.locator(`#${id}-error`), id).toBeVisible();
+  for (const id of ["category_id", "type_id", "size_id", "media_id"]) await expect(fieldError(page, id), id).toBeVisible();
 });
 
 test("AC-23 filtering products by type returns exactly that type's products", async ({ page }) => {
@@ -149,7 +149,7 @@ test("AC-26 order form: required fields, status choices, default New, no created
   await expect(status).toHaveValue("new");
   expect(await status.locator("option").allTextContents()).toEqual(["New", "Complete", "Archived"]);
   await save(page);
-  for (const id of ["client_id", "order_number", "due_date"]) await expect(page.locator(`#${id}-error`), id).toBeVisible();
+  for (const id of ["client_id", "order_number", "due_date"]) await expect(fieldError(page, id), id).toBeVisible();
 });
 
 test("AC-32 the order form's docket combobox lists only the selected client's dockets", async ({ page }) => {
@@ -158,6 +158,16 @@ test("AC-32 the order form's docket combobox lists only the selected client's do
   const padded = (n: number) => String(n).padStart(6, "0");
   await expect(page.getByRole("option", { name: padded(fx.docketId) })).toBeVisible();
   await expect(page.getByRole("option", { name: padded(fx.otherDocketId) })).toHaveCount(0);
+});
+
+test("Review 02 finding 5: changing an order's client clears its delivery docket", async ({ page }) => {
+  await withDb((c) => c.query("UPDATE orders SET delivery_docket_id = $1 WHERE id = $2", [fx.docketId, fx.orderId]));
+  await page.goto(`/orders/${fx.orderId}/edit`);
+  const docket = page.getByRole("combobox", { name: "Delivery Docket", exact: true });
+  await expect(docket).toContainText(String(fx.docketId).padStart(6, "0"));
+  await pickReference(page, "Client", fx.names.otherClient, fx.names.otherClient);
+  await expect(docket).toContainText("Select…");
+  await withDb((c) => c.query("UPDATE orders SET delivery_docket_id = NULL WHERE id = $1", [fx.orderId]));
 });
 
 test("AC-26 the order list shows docket numbers zero-padded and links the client", async ({ page }) => {
@@ -182,7 +192,7 @@ test("AC-27 the order-item form and detail page", async ({ page }) => {
   }
   await save(page);
   for (const id of ["order_id", "product_id", "part_number", "quantity", "height", "width", "depth"]) {
-    await expect(page.locator(`#${id}-error`), id).toBeVisible();
+    await expect(fieldError(page, id), id).toBeVisible();
   }
   await page.goto(`/order-items/${fx.orderItemId}`);
   const main = page.getByRole("main");
@@ -196,7 +206,7 @@ test("AC-28 creating a docket: to-client required, default Current, sender from 
   await expect(page.getByRole("combobox", { name: "From Client" })).toHaveCount(0);
   await expect(page.getByLabel("Status", { exact: true })).toHaveValue("current");
   await save(page);
-  await expect(page.locator("#to_client_id-error")).toBeVisible();
+  await expect(fieldError(page, "to_client_id")).toBeVisible();
   await pickReference(page, "To Client", fx.names.otherClient, fx.names.otherClient);
   await save(page);
   await expect(page).toHaveURL(/\/delivery-dockets\/\d+$/);

@@ -1,6 +1,7 @@
 "use client";
 
 import { parseAsString, useQueryStates } from "nuqs";
+import { useId } from "react";
 import { Button } from "@/components/ui/button";
 
 const SIZES = [10, 25, 50, 100];
@@ -9,14 +10,15 @@ const SIZES = [10, 25, 50, 100];
 export function Pagination({ total, page, pageSize }: { total: number; page: number; pageSize: number }) {
   const [, setQuery] = useQueryStates({ page: parseAsString, pageSize: parseAsString }, { shallow: false });
   const pages = Math.max(1, Math.ceil(total / pageSize));
+  const sizeId = useId();
   return (
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm print:hidden">
       <p>Total: {total}</p>
       <div className="flex items-center gap-3">
-        <label htmlFor="page-size" className="flex items-center gap-2">
+        <label htmlFor={sizeId} className="flex items-center gap-2">
           Rows per page
           <select
-            id="page-size"
+            id={sizeId}
             value={String(pageSize)}
             onChange={(e) => setQuery({ pageSize: e.target.value === "25" ? null : e.target.value, page: null })}
             className="h-8 rounded-md border border-input bg-background px-2"

@@ -36,6 +36,11 @@ describe("AC-19 mapDbError", () => {
     expect(mapDbError(pgError({ code: "23514", column: "email" }), "save")).toBe("please provide a valid email");
   });
 
+  it("22003 (numeric out of range) → please provide a valid integer", async () => {
+    const { mapDbError } = await load();
+    expect(mapDbError(pgError({ code: "22003" }), "save")).toBe("please provide a valid integer");
+  });
+
   it("22P02 → please provide a valid integer", async () => {
     const { mapDbError } = await load();
     expect(mapDbError(pgError({ code: "22P02" }), "save")).toBe("please provide a valid integer");

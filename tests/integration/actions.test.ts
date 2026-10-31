@@ -216,3 +216,19 @@ describe("AC-28 / AC-33 docket creation and FROM_CLIENT_ID", () => {
     expect(row).toEqual({ from_client_id: String(SENDER_CLIENT_ID), status: "archived" });
   });
 });
+
+describe("Review 02: session version", () => {
+  it("a password change on the Users screen bumps that user's session version", async () => {
+    const { saveRecord } = await actions();
+    const email = `${fx.tag}-sv@example.com`;
+    const created = await saveRecord("users", null, { email, password: "sv-password-111" });
+    if (!created.ok) throw new Error("setup");
+    const version = () =>
+      withDb(async (c) => Number((await c.query("SELECT session_version FROM users WHERE id = $1", [created.id])).rows[0].session_version));
+    const before = await version();
+    await saveRecord("users", created.id, { email, password: "" });
+    expect(await version()).toBe(before);
+    await saveRecord("users", created.id, { email, password: "sv-password-222" });
+    expect(await version()).toBe(before + 1);
+  });
+});

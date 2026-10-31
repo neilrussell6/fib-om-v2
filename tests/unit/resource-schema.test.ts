@@ -82,3 +82,19 @@ describe("AC-26 order status", () => {
     expect(s.safeParse({ ...base, status: "approved" }).success).toBe(false);
   });
 });
+
+describe("Review 02 finding 4: integers stay within the 32-bit column range", () => {
+  it.each([2147483648, -2147483649, 99999999999])("%s is rejected with 'please provide a valid integer'", async (n) => {
+    const { buildSchema } = await load();
+    const r = buildSchema("order_items", "create").safeParse({
+      order_id: 1, product_id: 1, part_number: "P", quantity: n, height: 1, width: 1, depth: 1,
+    });
+    expect(r.success).toBe(false);
+    expect(r.error!.issues.find((i) => i.path[0] === "quantity")?.message).toBe("please provide a valid integer");
+  });
+
+  it("2147483647 is accepted", async () => {
+    const { buildSchema } = await load();
+    expect(buildSchema("product_types", "create").safeParse({ name: "a", code: "b", millimetres_per_pleat: 2147483647 }).success).toBe(true);
+  });
+});

@@ -73,13 +73,32 @@ test("AC-5 email in a different case signs in", async ({ page }) => {
   await expect(page).toHaveURL(/\/$/);
 });
 
+// Sign-out ends every session of that user (session version), so these tests use their
+// own user rather than the shared e2e user whose saved session other tests reuse.
+const SIGN_OUT_USER = { email: "e2e-signout@example.com", password: "signout-password-1" };
+
 test("AC-7 the top bar shows the email, and sign-out ends the session", async ({ page }) => {
-  ensureTestUser();
+  ensureTestUser(SIGN_OUT_USER.email, SIGN_OUT_USER.password);
   await page.goto("/login");
-  await signIn(page, TEST_USER.email, TEST_USER.password);
-  await expect(page.getByRole("banner")).toContainText(TEST_USER.email);
+  await signIn(page, SIGN_OUT_USER.email, SIGN_OUT_USER.password);
+  await expect(page.getByRole("banner")).toContainText(SIGN_OUT_USER.email);
   await page.getByRole("button", { name: /sign out/i }).click();
   await expect(page).toHaveURL(/\/login/);
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login\?callbackUrl=%2F$/);
+});
+
+test("Review 02: a session cookie issued before sign-out is rejected afterwards (late prefetch race)", async ({ page, context }) => {
+  ensureTestUser(SIGN_OUT_USER.email, SIGN_OUT_USER.password);
+  await page.goto("/login");
+  await signIn(page, SIGN_OUT_USER.email, SIGN_OUT_USER.password);
+  await expect(page).toHaveURL(/\/$/);
+  // What a prefetch still in flight at sign-out would put back.
+  const before = (await context.cookies()).find((c) => c.name === "authjs.session-token");
+  expect(before).toBeDefined();
+  await page.getByRole("button", { name: /sign out/i }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await context.addCookies([before!]);
   await page.goto("/");
   await expect(page).toHaveURL(/\/login\?callbackUrl=%2F$/);
 });

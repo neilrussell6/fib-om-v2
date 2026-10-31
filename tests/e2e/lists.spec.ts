@@ -104,10 +104,53 @@ test("AC-11 list text filters match anywhere, case-insensitively", async ({ page
   await expect(page.getByRole("row").filter({ hasText: fx.names.client })).toHaveCount(1);
 });
 
+test("Review 02 finding 3: a row's identifying cell is a keyboard-reachable link to its detail page", async ({ page }) => {
+  await page.goto(`/orders?order_number=${fx.names.orderNumber}`);
+  const row = page.getByRole("row").filter({ hasText: fx.names.orderNumber });
+  const link = row.getByRole("link", { name: fx.names.orderNumber, exact: true });
+  await expect(link).toHaveAttribute("href", `/orders/${fx.orderId}`);
+  await link.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`/orders/${fx.orderId}$`));
+});
+
 test("AC-6 rows open the detail page and each row has an Edit action", async ({ page }) => {
   await page.goto(`/clients?name=${encodeURIComponent(fx.names.client)}`);
   const row = page.getByRole("row").filter({ hasText: fx.names.client });
   await expect(row.getByRole("link", { name: "Edit" })).toHaveAttribute("href", `/clients/${fx.clientId}/edit`);
   await row.getByRole("cell").first().click();
   await expect(page).toHaveURL(new RegExp(`/clients/${fx.clientId}$`));
+});
+
+test("Review 02 finding 1: invalid filter values in the URL don't break the list", async ({ page }) => {
+  for (const [path, heading] of [
+    ["/orders?created_from=abc&client=abc", "Orders"],
+    ["/order-items?height_from=x", "Order Items"],
+    ["/delivery-dockets?status=nope", "Delivery Dockets"],
+  ]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1 }), path).toHaveText(heading);
+    await expect(page.getByText(/^Total: \d+$/), path).toBeVisible();
+  }
+});
+
+test("Review 02 finding 2: no duplicate ids after client-side navigation between forms", async ({ page }) => {
+  await page.goto("/product-sizes/new");
+  await page.getByRole("link", { name: "Back", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Product Sizes");
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Product Types" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Product Types");
+  await page.getByRole("link", { name: "Create", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Create a Product Type");
+  const duplicates = await page.evaluate(() => {
+    const seen = new Map<string, number>();
+    for (const el of document.querySelectorAll("[id]")) seen.set(el.id, (seen.get(el.id) ?? 0) + 1);
+    return [...seen].filter(([, n]) => n > 1).map(([id]) => id);
+  });
+  expect(duplicates).toEqual([]);
+  // Hidden preserved pages keep their own (now uniquely id'd) Name inputs; only one is visible.
+  const name = page.getByLabel("Name", { exact: true }).filter({ visible: true });
+  await expect(name).toHaveCount(1);
+  await name.fill("x");
+  await expect(name).toHaveValue("x");
 });

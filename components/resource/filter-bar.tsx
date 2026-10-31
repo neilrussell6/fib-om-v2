@@ -2,7 +2,7 @@
 
 import { PlusIcon, XIcon } from "lucide-react";
 import { parseAsString, useQueryStates } from "nuqs";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import { ReferenceCombobox } from "./reference-combobox";
 const TEXT_DEBOUNCE_MS = 300;
 
 /** A text-like filter keeps local state and writes to the URL after a short pause. */
-function DebouncedInput({ filter, value, onCommit }: { filter: FilterDef; value: string; onCommit: (v: string) => void }) {
+function DebouncedInput({ id, filter, value, onCommit }: { id: string; filter: FilterDef; value: string; onCommit: (v: string) => void }) {
   const [draft, setDraft] = useState(value);
   // Follow URL changes made elsewhere (Clear, Clear all, back/forward) without an effect.
   const [lastValue, setLastValue] = useState(value);
@@ -27,7 +27,6 @@ function DebouncedInput({ filter, value, onCommit }: { filter: FilterDef; value:
     const t = setTimeout(() => onCommit(draft), TEXT_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [draft, value, onCommit]);
-  const id = `filter-${filter.key}`;
   const props = { id, value: draft, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value) };
   if (filter.kind === "number") return <NumberInput {...props} />;
   return <Input {...props} type={filter.kind === "date" ? "date" : "text"} />;
@@ -44,6 +43,8 @@ export function FilterBar({ filters }: { filters: FilterDef[] }) {
   );
   const [values, setValues] = useQueryStates(parsers, { shallow: false, history: "replace" });
   const [added, setAdded] = useState<string[]>([]);
+  // Unique per instance: a hidden, preserved list page can hold the same filters.
+  const idPrefix = useId();
 
   const visible = filters.filter((f) => f.alwaysShown || added.includes(f.key) || values[f.key]);
   const hidden = filters.filter((f) => !visible.includes(f));
@@ -58,14 +59,14 @@ export function FilterBar({ filters }: { filters: FilterDef[] }) {
         const value = (values[f.key] as string | null) ?? "";
         return (
           <div key={f.key} className="flex flex-col gap-1">
-            <Label htmlFor={`filter-${f.key}`}>{f.label}</Label>
+            <Label htmlFor={`${idPrefix}-filter-${f.key}`}>{f.label}</Label>
             <div className="flex items-center gap-1">
               <div className="w-48">
                 {f.kind === "reference" ? (
-                  <ReferenceCombobox id={`filter-${f.key}`} resource={f.ref!} value={value} onChange={(v) => set(f.key, v)} />
+                  <ReferenceCombobox id={`${idPrefix}-filter-${f.key}`} resource={f.ref!} value={value} onChange={(v) => set(f.key, v)} />
                 ) : f.kind === "select" ? (
                   <select
-                    id={`filter-${f.key}`}
+                    id={`${idPrefix}-filter-${f.key}`}
                     value={value}
                     onChange={(e) => set(f.key, e.target.value)}
                     className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -78,7 +79,7 @@ export function FilterBar({ filters }: { filters: FilterDef[] }) {
                     ))}
                   </select>
                 ) : (
-                  <DebouncedInput filter={f} value={value} onCommit={(v) => set(f.key, v)} />
+                  <DebouncedInput id={`${idPrefix}-filter-${f.key}`} filter={f} value={value} onCommit={(v) => set(f.key, v)} />
                 )}
               </div>
               {value ? (

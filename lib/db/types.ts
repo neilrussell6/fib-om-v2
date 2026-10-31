@@ -4,6 +4,8 @@ export type UserRow = {
   id: number;
   email: string;
   password_hash: string;
+  /** Incremented on sign-out (and password change); sessions carrying an older value are rejected. */
+  session_version: number;
   created_at: Date;
 };
 

@@ -133,7 +133,7 @@ Any other error is logged on the server, and the user sees "Something went wrong
 
 Automated (unit, integration against Postgres with migrations applied, or Playwright):
 
-1. **AC-1** All migrations apply cleanly to an empty database; `npm run db:validate` and `atlas migrate lint --latest 1` pass.
+1. **AC-1** All migrations apply cleanly to an empty database; `npm run db:validate` passes. (`atlas migrate lint` was dropped: it needs Atlas Pro since v0.38; author decision 2026-10-31.)
 2. **AC-2** The schema has the tables, enums, `NOT NULL` columns, `ON DELETE RESTRICT` foreign keys and generated `docket_number` described in Design; a test inserting a docket with id 42 reads back `docket_number = '000042'`.
 3. **AC-3** Two orders with the same order number (same client and different clients) both save; an order item with quantity `-1` or height `0` saves (no new `CHECK` constraints).
 4. **AC-4** Every text column used by a list filter or combobox has a `pg_trgm` GIN index (checked against `pg_indexes`).

@@ -20,14 +20,14 @@ describe("AC-5 verifyCredentials", () => {
     const { verifyCredentials } = await load();
     await expect(
       verifyCredentials({ email: "staff@example.com", password: "correct horse battery" }, { findUserByEmail }),
-    ).resolves.toEqual({ id: "1", email: "staff@example.com" });
+    ).resolves.toEqual({ id: "1", email: "staff@example.com", sessionVersion: 0 });
   });
 
   it("matches the email case-insensitively and trimmed", async () => {
     const { verifyCredentials } = await load();
     await expect(
       verifyCredentials({ email: "  Staff@Example.com ", password: "correct horse battery" }, { findUserByEmail }),
-    ).resolves.toEqual({ id: "1", email: "staff@example.com" });
+    ).resolves.toEqual({ id: "1", email: "staff@example.com", sessionVersion: 0 });
     expect(findUserByEmail).toHaveBeenCalledWith("staff@example.com");
   });
 

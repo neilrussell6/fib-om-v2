@@ -37,6 +37,10 @@ export function DataTable({
   const router = useRouter();
   const [, setQuery] = useQueryStates({ sort: parseAsString, dir: parseAsString, page: parseAsString }, { shallow: false });
 
+  // The record's own identifying cell: the first column that doesn't link elsewhere.
+  // It's a real link, so keyboard users can open the detail page (review 02, finding 3).
+  const primaryKey = columns.find((c) => !c.link)?.key;
+
   const tableColumns = useMemo(
     () =>
       helper.columns(
@@ -53,12 +57,19 @@ export function DataTable({
               </Link>
             );
           }
+              if (c.key === primaryKey) {
+                return (
+                  <Link href={`${path}/${row.original.id}`} onClick={(e) => e.stopPropagation()} className="font-medium text-primary-dark underline-offset-2 hover:underline">
+                    {text || "(blank)"}
+                  </Link>
+                );
+              }
               return text;
             },
           }),
         ),
       ),
-    [columns],
+    [columns, path, primaryKey],
   );
 
   // Sorting and paging are done by the server; the table only renders the page it was given.

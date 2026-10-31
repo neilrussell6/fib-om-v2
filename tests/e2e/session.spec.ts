@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { decode, encode } from "next-auth/jwt";
+import { withDb } from "../helpers/test-db";
 import { SESSION_COOKIE, TEST_USER, uniqueIp } from "./helpers";
 
 const secret = () => {
@@ -8,9 +9,13 @@ const secret = () => {
   return s;
 };
 
+/** A session token for the e2e user, carrying its current session version (checked on every request). */
 async function cookieFor(maxAgeSeconds: number): Promise<string> {
+  const user = await withDb(async (c) =>
+    (await c.query("SELECT id, session_version FROM users WHERE email = $1", [TEST_USER.email])).rows[0],
+  );
   return encode({
-    token: { sub: "1", email: TEST_USER.email },
+    token: { sub: String(user.id), email: TEST_USER.email, sv: Number(user.session_version) },
     secret: secret(),
     salt: SESSION_COOKIE,
     maxAge: maxAgeSeconds,

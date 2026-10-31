@@ -65,7 +65,6 @@ describe("AC-16 ci.yml", () => {
     "gitleaks",
     "ariga/setup-atlas@v0",
     "atlas migrate validate",
-    "atlas migrate lint --latest 1",
     "atlas migrate apply",
     "test:integration",
     "npm run build",

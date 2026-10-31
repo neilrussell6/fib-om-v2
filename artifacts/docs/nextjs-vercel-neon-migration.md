@@ -113,7 +113,7 @@ Constraints that already exist in web3's database stay: foreign keys that block 
 | Legacy data snapshot | A bash script connects to the legacy DB and takes a data dump |
 | `seed-dummy` | Allowed locally and on staging; refuses production |
 | Test tools | Vitest (unit, integration against a real Postgres), Playwright (end-to-end) |
-| Sessions | JWT cookie, 8-hour rolling |
+| Sessions | JWT cookie, 8-hour rolling, with a per-user session version checked on every request; sign-out (and a password change) ends the user's sessions on every device |
 | Dashboard | A Dashboard page at `/`, empty for now. Sidebar: Dashboard first, Users last |
 | Structure | Four feature specs, delivered in order (table above) |
 | Notcher host | `https://fibatron.com`, which serves nothing besides this app |
@@ -147,9 +147,9 @@ Browser ──► Vercel (Next.js App Router)
 | Forms | react-hook-form + zod (shared schema for client and server validation) | Replaces react-admin `required()` validators |
 | DB | Neon Postgres: branches `production` and `staging` | Managed and serverless; branching gives a staging copy |
 | Data access | **Plain SQL, no ORM.** `@neondatabase/serverless`: the `neon()` tagged-template client for one-off queries, and `Pool` for transactions | Queries stay readable and portable, `json_build_object`/views are used directly, and the notcher SQL ports verbatim |
-| Migrations | [Atlas](https://atlasgo.io) versioned migrations: SQL files written by hand plus `atlas.sum`, applied **only by CI** (O7) | Plain SQL, integrity-checked, with linting for destructive changes. Same setup as `sa-political-compass` |
+| Migrations | [Atlas](https://atlasgo.io) versioned migrations: SQL files written by hand plus `atlas.sum`, applied **only by CI** (O7) | Plain SQL, integrity-checked (`atlas migrate validate`). Same setup as `sa-political-compass` |
 | Row types | TypeScript types written by hand in `lib/db/types.ts`, plus zod schemas for anything entering the system (forms, query params) | Types stay in step with the SQL; no codegen step needed |
-| Auth | Auth.js (NextAuth v5) Credentials provider with bcrypt, JWT cookie session (8-hour rolling) | Matches today's email/password model. No third-party sign-up needed. JWT avoids a sessions table. |
+| Auth | Auth.js (NextAuth v5) Credentials provider with bcrypt, JWT cookie session (8-hour rolling) plus `users.session_version` checked on every request | Matches today's email/password model. No third-party sign-up needed. JWT avoids a sessions table (Auth.js doesn't support database sessions with credentials); the version makes sign-out stick. |
 | URL state | `nuqs` for list filters, sort and pagination in the query string | Filters can be bookmarked or shared, as react-admin allows today |
 | Tests | Vitest (unit and integration against a real Postgres), Playwright (end-to-end) | `.gitignore` already expects Playwright output |
 | Hosting / CI | Vercel, deployed **only by GitHub Actions** (`vercel build` + `vercel deploy --prebuilt`): staging on every push to `main` that passes CI, production on manual dispatch (O7) | Migrations and deploys run in one controlled pipeline, in order |
@@ -247,7 +247,7 @@ There's a fixed `staging` Neon branch rather than one per preview, because CI ap
 - Locally, `db:migrate` runs against `DATABASE_URL` from `.env`. Editing a migration once it has been applied to staging is not allowed; add a new one instead.
 
 ### O7.3 CI workflows
-- **`ci.yml`** runs on pushes to `main` (and on pull requests, if any are opened): `npm ci`, typecheck, lint, unit tests; `ariga/setup-atlas@v0`, `atlas migrate validate`, `atlas migrate lint --latest 1`; then integration tests against a `postgres` service container after `atlas migrate apply`.
+- **`ci.yml`** runs on pushes to `main` (and on pull requests, if any are opened): `npm ci`, typecheck, lint, unit tests; gitleaks; `ariga/setup-atlas@v0`, `atlas migrate validate`; then integration tests and Playwright against `postgres` and Neon-proxy service containers after `atlas migrate apply`. (No `atlas migrate lint`: it needs Atlas Pro since v0.38; destructive changes are caught in review.)
 - **`deploy.yml`**:
   - **`deploy-preview`** when CI succeeds on a push to `main` (`workflow_run`, checking out the tested commit), GitHub environment `staging`: (1) fail if no production deployment exists yet (Vercel auto-promotes a new project's first deployment); (2) checkout, set the git author for Vercel, `setup-node`, `npm i -g vercel`; (3) `vercel pull --environment=preview`; (4) `ariga/setup-atlas@v0`, then `ariga/atlas-action/migrate/apply@v1` with `dir: file://db/migrations`, `url: ${{ secrets.DATABASE_URL_UNPOOLED }}`, `revisions-schema: public`; (5) `vercel build`, `vercel deploy --prebuilt`; (6) alias to the staging domain through the Vercel API (`vercel alias` fails with team-scoped tokens).
   - **`deploy-production`** on `workflow_dispatch`, environment `production`: the same with `--environment=production`, migrations against the production branch, `vercel build --prod`, `vercel deploy --prebuilt --prod`.

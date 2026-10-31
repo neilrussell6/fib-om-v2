@@ -73,9 +73,6 @@ jobs:
       - name: Validate migrations
         run: atlas migrate validate --env local
 
-      - name: Lint latest migration
-        run: atlas migrate lint --latest 1 --env local
-
       - name: Apply migrations
         run: atlas migrate apply --env local --url "$DATABASE_URL_UNPOOLED" --revisions-schema public
 

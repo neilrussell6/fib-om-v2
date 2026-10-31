@@ -164,7 +164,7 @@ for (const c of cases) {
     await expect(editedRow).toBeVisible();
 
     // Delete
-    await editedRow.getByRole("link", { name: "Edit" }).click();
+    await editedRow.getByRole("link", { name: "Edit", exact: true }).click();
     await confirmDelete(page);
     await expectToast(page, `${c.singular} successfully deleted`);
     await expect(page).toHaveURL(new RegExp(`${c.path}(\\?.*)?$`));
