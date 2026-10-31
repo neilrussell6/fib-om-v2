@@ -1,5 +1,10 @@
 {
   "enabledPlugins": {
     "ai-workflows@ai-workflows": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash"
+    ]
   }
 }
