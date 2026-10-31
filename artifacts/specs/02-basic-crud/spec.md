@@ -178,4 +178,4 @@ Automated (unit, integration against Postgres with migrations applied, or Playwr
 ## Open questions
 
 1. ~~**OQ-1 Delete toast wording**~~ — resolved 2026-10-31: "<Resource> successfully deleted" / "Could not delete <Resource>: <message>", matching the create/update pattern.
-2. ~~**OQ-2 Product sizes columns**~~ — resolved 2026-10-31: name only, like web3. Extra columns are kept in the schema (the notcher feed emits them) but not shown in the UI.
+2. ~~**OQ-2 Product sizes columns**~~ — resolved 2026-10-31: name only, like web3. Any extra columns in v1's schema are kept (and imported if production has them) but not shown in the UI.

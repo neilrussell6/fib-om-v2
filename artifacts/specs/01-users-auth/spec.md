@@ -60,7 +60,7 @@ Stand up the new app and everything around it: the Next.js project, theme, datab
 - **`scripts/create-user.ts`:** `create-user <email>`; reads the password from a prompt or `CREATE_USER_PASSWORD`, never from argv; rejects passwords shorter than 12 characters (no other rules); hashes with bcrypt (cost ≥ 10); fails if the email already exists. The password rule lives in a shared zod schema so the Users screen (spec 02) uses the same one.
 - **CI / deploy:** `ci.yml` and `deploy.yml` as O7.3. `ci.yml` also runs gitleaks over the repo, and runs `atlas migrate lint` with Docker available for the dev database (`docker://postgres/17/dev`). The staging domain comes from the GitHub repo variable `STAGING_DOMAIN` (`staging.fibatron.com`). The first deploy is a manual production run so the staging guard passes.
 - **Vercel plan:** Hobby (author decision). No Firewall rules are relied on.
-- **Config:** `.env.tpl` lists `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AUTH_SECRET`, `NOTCHER_API_KEY`, `FROM_CLIENT_ID` with no values. `.vercelignore` as O7.4. GitHub/Vercel/Neon configuration as O7.4.
+- **Config:** `.env.tpl` lists `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AUTH_SECRET`, `NOTCHER_API_KEY`, `FROM_CLIENT_ID` with no values. It also lists, commented out, the operator-only variables used by spec 04's data scripts (`SOURCE_MYSQL_URL`, `SCRATCH_MYSQL_URL`, `PRODUCTION_DB_HOST`), with a note that they are set only on the trusted machine. `.vercelignore` as O7.4. GitHub/Vercel/Neon configuration as O7.4.
 - **Security:** rotate the legacy hardcoded DigitalOcean DB password (O8).
 
 ## Acceptance criteria
@@ -84,7 +84,7 @@ Automated (unit, integration against Postgres with migrations applied, or Playwr
 15. **AC-15** The `users` migration is an Atlas versioned migration; `npm run db:validate` passes; `db:migrate`, `db:status`, `db:new` and `db:hash` exist and call Atlas through `scripts/db.sh` with `--revisions-schema public`.
 16. **AC-16** `ci.yml` runs install, typecheck, lint, unit tests, gitleaks, `atlas migrate validate`, `atlas migrate lint --latest 1` (with Docker for the dev database), then integration tests against a Postgres service container after `atlas migrate apply`; a failing step fails the run.
 17. **AC-17** `deploy.yml`: on push to `main` it fails if no production deployment exists, applies migrations over `DATABASE_URL_UNPOOLED` with `revisions-schema: public` before `vercel build`/`vercel deploy --prebuilt`, stops if migrations fail, and aliases to the domain in the `STAGING_DOMAIN` repo variable via the Vercel API; on `workflow_dispatch` it does the same for production with `--prod`.
-18. **AC-18** No secret is committed (gitleaks passes in CI); `.env.tpl` lists the five variables above without values; `.vercelignore` excludes `.claude`, `.cursor` and test output.
+18. **AC-18** No secret is committed (gitleaks passes in CI); `.env.tpl` lists the five variables above without values, plus the three operator-only variables commented out; `.vercelignore` excludes `.claude`, `.cursor` and test output.
 
 19. **AC-19** From one IP, 10 sign-in attempts within a minute are each processed normally; the 11th is refused with "Too many sign-in attempts. Try again in a minute." and the password is not checked; after 60 seconds attempts are accepted again; page loads, `/api/auth/session` and sign-out are never refused by the limiter.
 
