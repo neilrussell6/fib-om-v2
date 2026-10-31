@@ -40,6 +40,20 @@ env "local" {
 
 Schema migrations and deploys only ever run from GitHub Actions. A push to `main` deploys to `staging.fibatron.com`, and production is a manual dispatch.
 
+## Tasks
+
+The spec became a checklist of 48 tasks in eight groups: scaffold, database access and migrations, passwords and the `create-user` script, authentication, the app shell and theme, tests, CI and deploy, and the manual setup of Neon, GitHub and Vercel. Each task names the acceptance criterion it serves, so every criterion maps to something buildable.
+
+Reviewing the list took four rounds, and each round found a problem that only showed once the work was laid out step by step. The first noticed that a dozen acceptance criteria rely on Playwright, but nothing would run those tests: CI only ran unit and integration tests, and there was no local database. The author added a docker-compose Postgres and a Playwright step in CI, and the spec's AC-16 grew to match.
+
+That change exposed the second problem. Every browser test signs in from the same IP, and the 10-per-minute sign-in limit from the spec would start refusing them partway through the suite. The fix is a Playwright setup step that signs in once and saves the session. Only the tests that are actually about login sign in themselves, and they clear the attempts table first.
+
+The third round caught something more basic. The app talks to Neon through `@neondatabase/serverless`, which sends queries over HTTP and WebSockets to Neon's own endpoints, so it can't reach a plain Postgres container. Rather than switch drivers outside production, the author chose to run a Neon-compatible proxy next to Postgres, locally and in CI, and point the driver at it:
+
+> when `DATABASE_URL` isn't a Neon host, set `neonConfig` (fetch endpoint, WebSocket proxy, no TLS) to use the local proxy, so the same driver runs locally, in CI and on Neon
+
+The fourth round only added small things: an explicit task for the Auth.js route handler, and a reordering so `.env.tpl` exists before the docker-compose task refers to it. Then the list passed.
+
 ---
 
 # 2. Basic CRUD (`02-basic-crud`)

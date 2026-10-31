@@ -15,6 +15,16 @@ Shared background for all four features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261031-162027 — Phase 1, step "spec revision" (non-blocking items): done — `logs/01-users-auth/20261031-162027--spec-revision-changelog.md`
 - 20261031-170021 — Phase 1, step "commit": done — commit `6a67038`
 - 20261031-170759 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/01-users-auth/20261031-170759--book-changelog.md`
+- 20261031-170900 — Phase 2, step "tasks": done — `artifacts/specs/01-users-auth/tasks.md`
+- 20261031-171701 — Phase 2, step "review tasks" + "validate tasks": FAIL — `logs/01-users-auth/20261031-171701--task-review--FAIL.md`
+- 20261031-171701 — Phase 2, step "task revision": done — `artifacts/specs/01-users-auth/tasks.md` (spec AC-16 also revised: `logs/01-users-auth/20261031-171701--spec-revision-changelog.md`)
+- 20261031-171912 — Phase 2, step "review tasks" + "validate tasks": FAIL — `logs/01-users-auth/20261031-171912--task-review--FAIL.md`
+- 20261031-171912 — Phase 2, step "task revision": done — `artifacts/specs/01-users-auth/tasks.md`
+- 20261031-172020 — Phase 2, step "review tasks" + "validate tasks": FAIL — `logs/01-users-auth/20261031-172020--task-review--FAIL.md`
+- 20261031-172020 — Phase 2, step "task revision": done — `artifacts/specs/01-users-auth/tasks.md` (spec Design also revised)
+- 20261031-172122 — Phase 2, step "review tasks" + "validate tasks": PASS — `logs/01-users-auth/20261031-172122--task-review--PASS.md`
+- 20261031-172122 — Phase 2, step "commit": done — commit `08425c5`
+- 20261031-172142 — Phase 2, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/01-users-auth/20261031-172142--book-changelog.md`
 
 ## 02-basic-crud
 
