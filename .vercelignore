@@ -1,0 +1,8 @@
+# Tooling and test output break `vercel deploy --prebuilt` and never belong in a deployment.
+.claude
+.cursor
+coverage
+playwright-report
+test-results
+tests/e2e/.auth
+legacy-prod

@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: main
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d main"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+      # Neon-compatible HTTP/WebSocket proxy, so the app's @neondatabase/serverless driver works against plain Postgres.
+      neon-proxy:
+        image: ghcr.io/timowilhelm/local-neon-http-proxy:main
+        env:
+          PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/main
+        ports:
+          - 4444:4444
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@db.localtest.me:5432/main
+      DATABASE_URL_UNPOOLED: postgres://postgres:postgres@localhost:5432/main?sslmode=disable&search_path=public
+      # Throwaway test value, not a real secret.
+      AUTH_SECRET: ci-only-test-secret-not-used-anywhere-else
+      NOTCHER_API_KEY: ci-only-test-key
+      FROM_CLIENT_ID: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .tool-versions
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Secret scan (gitleaks)
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.3 detect --source /repo --config /repo/.gitleaks.toml --redact --verbose
+
+      - uses: ariga/setup-atlas@v0
+
+      - name: Validate migrations
+        run: atlas migrate validate --env local
+
+      - name: Lint latest migration
+        run: atlas migrate lint --latest 1 --env local
+
+      - name: Apply migrations
+        run: atlas migrate apply --env local --url "$DATABASE_URL_UNPOOLED" --revisions-schema public
+
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7

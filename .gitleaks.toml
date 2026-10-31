@@ -1,0 +1,7 @@
+# Default gitleaks rules, plus one allowlisted path.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Atlas migration integrity hashes, not secrets"
+paths = ['''^db/migrations/atlas\.sum$''']
