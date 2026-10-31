@@ -52,6 +52,12 @@ Shared background for all four features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261031-162057 — Phase 1, step "spec revision" (non-blocking items): done — `logs/02-basic-crud/20261031-162057--spec-revision-changelog.md`
 - 20261031-170021 — Phase 1, step "commit": done — commit `6a67038`
 - 20261031-170759 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/02-basic-crud/20261031-170759--book-changelog.md`
+- 20261031-205737 — Phase 2, step "tasks": done — `artifacts/specs/02-basic-crud/tasks.md`
+- 20261031-210254 — Phase 2, step "review tasks" + "validate tasks": FAIL — `logs/02-basic-crud/20261031-210254--task-review--FAIL.md`
+- 20261031-210254 — Phase 2, step "task revision": done — `artifacts/specs/02-basic-crud/tasks.md` (specs 02 and 04 also revised: `logs/02-basic-crud/20261031-210254--spec-revision-changelog.md`)
+- 20261031-210456 — Phase 2, step "review tasks" + "validate tasks": PASS — `logs/02-basic-crud/20261031-210456--task-review--PASS.md`
+- 20261031-210456 — Phase 2, step "commit": done — commit `e798748`
+- 20261031-210456 — Phase 2, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/02-basic-crud/20261031-210456--book-changelog.md`
 
 ## 03-custom-behaviour
 

@@ -134,6 +134,16 @@ That error mapping keys on Postgres SQLSTATE codes rather than matching error te
 
 The most important decision came out of review: which fields are actually required. The legacy schema had every client column `NOT NULL`, v1's form marked none of them required, and the import was going to turn blanks into `NULL`. These rules clashed. The author settled it: only identifying fields are required (a client's name, a product type's name and code, and so on). Everything else is optional and stored as `NULL` when blank. A few rules were also tightened: an order can only sit on a docket belonging to its own client, and nobody can delete their own account or the last remaining user.
 
+## Tasks
+
+The spec became 71 tasks. Dependencies and UI primitives come first, then five Atlas migrations (reference data, orders and dockets, order items, trigram search indexes, display views). Next come the shared server pieces: a list-query builder that only accepts allowlisted filter and sort keys, the SQLSTATE error map, a Server Action helper and a reference-search endpoint. The shared UI follows: the data table, filter bar, pagination, combobox, form helper, confirm dialog, detail layout and print styles. Then each of the ten resources as two tasks (data layer, then pages), and finally the tests, one or more per acceptance criterion.
+
+Review found one thing that would have stopped the tests cold. Creating a delivery docket stamps it with the sender client from the `FROM_CLIENT_ID` environment variable, but the browser tests' database had no client with that id. And the spec's check for an unset or wrong `FROM_CLIENT_ID` couldn't run in a browser at all, because a running server's environment can't change between tests. So the Playwright setup now seeds the sender client with that exact id, and the misconfiguration check moved to an integration test that sets the variable in-process; the docket logic reads it at call time to make that possible.
+
+Three smaller changes followed. Each resource was split in two so progress is easier to check. The way Server Actions are tested directly (thin wrappers, with auth and cache mocked in Vitest) became its own task. And the "can't delete the last user" rule moved to an integration test, since a shared browser-test database always has other users.
+
+One question went back to the author: the spec wanted the schema checked against the production MySQL dump, which hasn't arrived. Rather than wait, that check moved to the data-scripts feature, where the import mapping is built anyway; this feature builds from v1's schema files.
+
 ---
 
 # 3. Custom behaviour (`03-custom-behaviour`)
