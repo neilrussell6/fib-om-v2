@@ -202,6 +202,30 @@ The `try` came from the second review round. A failed lookup at first counted as
 
 ---
 
+# 3. Seed dummy data (`03-seed-dummy`)
+
+## Spec
+
+This feature started life as one bullet in the data-scripts spec. Once the CRUD screens were working and staging was deployed, an empty database became the obvious problem: the custom behaviour in the next feature (category-driven columns, stage toggles, docket printing) is hard to build or show to staff without realistic data. So `seed-dummy` was pulled out into its own feature and moved ahead of custom behaviour. The two later specs were renumbered to match: custom behaviour became `04` and data scripts became `05`.
+
+```
+npm run seed:dummy -- --target local
+npm run seed:dummy -- --target staging     # asks you to type "staging"
+```
+
+The script wipes every app table except `users` and `login_attempts` and fills them with a deterministic synthetic dataset. "Deterministic" took some care:
+- **A seeded random generator** (`--seed`, default `1`), so the same seed always gives the same rows.
+- **A fixed anchor date** (2026-01-01) for every date column, because `orders.date` and `delivery_dockets.date` default to `current_date`, which would make two runs on different days differ.
+- **Explicit client ids.** Docket creation needs a sender client with the id in `FROM_CLIENT_ID`. If the dummy clients took ids from the sequence, one of them could grab that id first. So the dataset assigns every client id itself, skipping the sender's.
+
+Order and order-item ids are the exception. Their sequences are never reset, because `seed-old` will later set them above production's highest ids, and the notcher software must never see an id twice. Postgres made that split awkward: it won't truncate `clients` without truncating every table that references it in the same statement, and `RESTART IDENTITY` applies to all of them. The answer is a single `TRUNCATE … CONTINUE IDENTITY`, then `ALTER SEQUENCE … RESTART` for just the reference tables and dockets.
+
+Most of the review went into the guard. The script refuses `--target production` outright. It also refuses any database whose host matches `PRODUCTION_DB_HOST`, and with `--target local` it only accepts `localhost`, `127.0.0.1` or `db.localtest.me`, so a Neon URL left over in the shell can't be wiped by mistake. Staging needs `FROM_CLIENT_ID` set to Vercel Preview's value and a typed confirmation. The guard lives in `scripts/lib/target-guard.ts`, and `seed-old` will reuse it. v1's category names and column flags go into `lib/data/v1-categories.ts` for the same reason, so seeded and real data show the same columns per category.
+
+Testing a script whose job is to empty the database needed its own arrangement. The integration tests share one Postgres and run in parallel, so these tests create, migrate and drop a throwaway database of their own. The guard tests point the script at `seed-guard.invalid`, a host that can never resolve: a refusal shows up as the guard's message, and any attempt to connect would show up as a connection error instead.
+
+---
+
 # 4. Custom behaviour (`04-custom-behaviour`)
 
 ## Spec
