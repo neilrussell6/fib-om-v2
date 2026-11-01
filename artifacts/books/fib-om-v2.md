@@ -230,6 +230,29 @@ The spec became 22 tasks, with the dataset split into seven sub-tasks. Two share
 
 Review caught a quiet flaw in the guard tests. The script reads `.env`, and Node's `loadEnvFile` fills in any variable that isn't already set. So a test that "leaves out" `FROM_CLIENT_ID` gets `1` back from the developer's `.env`, and a case missing two requirements fails on whichever rule runs first. Both still pass, without testing the rule they name. The fix has three parts: an empty value counts as unset, every case gets a complete environment with only its own rule broken and checks that rule's message, and `.env` is now read only for `--target local`. That last part also means a stale local `.env` can never mix into a staging run.
 
+## Implementation
+
+The script has three layers, and the tests reach each one directly. `buildDataset(seed, fromClientId)` is pure: it returns every row the database will hold, ids included, so determinism and the dummy-only rules are checked without a database. `seedDummy(client, dataset)` writes that dataset in one transaction. The CLI around them only parses arguments, runs the guard, asks for confirmation and prints a row count per table.
+
+The dataset is small but deliberately awkward: 37 clients, v1's 8 categories plus "Dummy All Columns" and "Dummy No Columns", 72 products, 24 dockets, 72 orders and 360 order items. Fixed rows cover the edge cases the screens have to handle: every boolean both ways, zero dimensions, non-ASCII names and a `/` in a part number, and the four combinations that decide whether the notcher feed shows an item. Everything else comes from a small seeded generator (mulberry32), so `--seed 2` gives a different but equally repeatable database.
+
+Giving the reference tables and dockets explicit ids as well as the clients turned out simpler than resolving generated ids. Products can point at category 3 directly. The rollback test (AC-5) can insert an order item with a product that doesn't exist and check that nothing was written. Explicit ids leave the sequences behind, so the script restarts them and then sets each one past its highest id:
+
+```ts
+// One statement: Postgres won't truncate a table referenced by one left out.
+await c.query(`TRUNCATE ${WIPED.join(", ")} CONTINUE IDENTITY`);
+for (const t of RESTARTED) await c.query(`ALTER TABLE ${t} ALTER COLUMN id RESTART`);
+
+for (const t of ["clients", "product_categories", "product_types", "product_sizes", "product_media", "products", "delivery_dockets"] as const) {
+  await insertRows(c, t, dataset[t], true); // OVERRIDING SYSTEM VALUE
+  await c.query(`SELECT setval(pg_get_serial_sequence('${t}', 'id'), (SELECT coalesce(max(id), 1) FROM ${t}))`);
+}
+```
+
+Orders and order items are the exception, as the spec required: they take ids from sequences that are never reset, and items find their order by position in the dataset.
+
+The tests passed the first time. The full run did not. Four CRUD browser tests from the previous feature timed out, and a different four on each re-run. The Playwright trace showed nothing hanging, just every request taking one to three seconds. Timing a bare `select 1` found the cause: about 1 ms straight to Postgres, about 210 ms through the local Neon-compatible proxy. The proxy re-authenticated and opened a new connection for every query, and each page makes several queries, while the sidebar's link prefetches competed for the same proxy. The author had asked for local connections to be direct, but the earlier change had only covered `next dev`. So now every local database (dev, tests, Playwright, CI) gets node-postgres, and the proxy was removed from Docker Compose and CI. The CRUD round trips dropped from 22–31 s to 6–13 s, and the browser suite from 12 minutes to 5.5. The trade-off is that the Neon driver itself is now exercised only on staging and production. The final run had 167 unit, 125 integration and 85 browser tests, all green.
+
 ---
 
 # 4. Custom behaviour (`04-custom-behaviour`)

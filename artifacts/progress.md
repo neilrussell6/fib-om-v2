@@ -42,6 +42,7 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261031-205602 — Phase 4, step "commit review": done — commit `2f46d49`
 - 20261031-205620 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/01-users-auth/20261031-205620--book-changelog.md`
 - 20261031-205620 — Feature workflow complete (phases 1–4). Open: operational AC-20–22 (first production deploy, Vercel env vars, legacy DB password rotation); CI and deploy workflows not yet executed on GitHub.
+- 20261101-171508 — Change after completion (author decision, during `03-seed-dummy`): every local database connection goes direct to Postgres, and the local Neon proxy is removed — commit `2dbddae`, `logs/01-users-auth/20261101-171508--spec-revision-changelog.md`
 
 ## 02-basic-crud
 
@@ -103,6 +104,12 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261101-134901 — Phase 2, step "review tasks" + "validate tasks": PASS — `logs/03-seed-dummy/20261101-134901--task-review--PASS.md`
 - 20261101-134901 — Phase 2, step "commit": done — commit `d3c81b1`
 - 20261101-134901 — Phase 2, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/03-seed-dummy/20261101-134901--book-changelog.md`
+- 20261101-135619 — Phase 3, step "write tests" + "implement feature": done — `logs/03-seed-dummy/20261101-135619--implementation-changelog.md`
+- 20261101-162939 — Phase 3, step "run tests": FAIL — `logs/03-seed-dummy/20261101-162939--tests--FAIL.md` (CRUD browser-test timeouts; cause: the local Neon proxy)
+- 20261101-171508 — Phase 3, step "fix": done — no feature code changed; local proxy removed by author decision (commit `2dbddae`)
+- 20261101-171508 — Phase 3, step "run tests": PASS — `logs/03-seed-dummy/20261101-171508--tests--PASS.md`
+- 20261101-171508 — Phase 3, step "commit": done — commit `a0367d6`
+- 20261101-171508 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/03-seed-dummy/20261101-171508--book-changelog.md`
 
 ## 04-custom-behaviour
 
