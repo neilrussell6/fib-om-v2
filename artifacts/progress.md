@@ -175,3 +175,11 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261101-222151 — Phase 2, step "review tasks" + "validate tasks": PASS — `logs/06-order-items-design/20261101-222151--task-review--PASS.md`
 - 20261101-222151 — Phase 2, step "commit": done — commit `50d8354`
 - 20261101-222204 — Phase 2, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/06-order-items-design/20261101-222204--book-changelog.md`
+- 20261101-230158 — Phase 3, step "write tests" + "implement feature": done — `logs/06-order-items-design/20261101-230158--implementation-changelog.md`
+- 20261101-231048 — Phase 3, step "run tests": FAIL — `logs/06-order-items-design/20261101-231048--tests--FAIL.md`
+- 20261101-231048 — Phase 3, step "fix": done — implementation changelog; the author chose the avatar colour (`logs/06-order-items-design/20261101-235243--spec-revision-changelog.md`)
+- 20261102-000414 — Phase 3, step "run tests": FAIL — `logs/06-order-items-design/20261102-000414--tests--FAIL.md`
+- 20261102-000414 — Phase 3, step "fix": done — implementation changelog
+- 20261102-002229 — Phase 3, step "run tests": PASS — `logs/06-order-items-design/20261102-002229--tests--PASS.md`
+- 20261102-002229 — Phase 3, step "commit": done — commit `954362f`
+- 20261102-002256 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/06-order-items-design/20261102-002256--book-changelog.md`

@@ -341,3 +341,31 @@ lib/order-items/panel-actions.ts   "use server"           getProductPanelInfo, g
 ```
 
 A test makes sure the query file never gains the directive. The other fixes were smaller. The `due_in_days` test now compares against today in Brisbane computed with `Intl`, because Postgres can't fake `now()`. A deep link to an item outside the current tab gets its own e2e step. And the `statusTabs` flag, which switches the list's status filtering and counts on for Order Items only, finally got a task that adds it to the `ResourceUi` type.
+
+## Implementation
+
+The build went in the order of the task list, with tests first. Almost all of the restyle happens in two places. `app/globals.css` maps the design's colours onto the shadcn variables every component already reads, plus a handful of new tokens (`--surface`, `--row-selected`, `--subtle-foreground` and friends). The shared list components (`PageHeader`, `FilterBar`, `DataTable`, `Pagination`) were then restyled once, so every list page changed together. `DataTable` grew a few optional props: `onRowOpen`, `selectedId`, `renderCell`, `optionalColumns`. Order Items uses them to open the panel instead of the detail page, while every other list keeps its old behaviour.
+
+The panel's Save action is the heart of the feature, and it does exactly what review settled on. The item fields go through the existing allowlisted writer. The order fields never reach it. The order that gets updated is read back from the item row after the write:
+
+```ts
+const result = await tx(async (client) => {
+  if (!(await updateRecord("order_items", String(id), data, client))) return null;
+  // The order the item belongs to after the update, read back from the item row.
+  const { rows } = await client.query(
+    `SELECT o.id, o.due_date::text AS due_date, o.status::text AS status
+       FROM order_items i JOIN orders o ON o.id = i.order_id
+      WHERE i.id = $1 FOR UPDATE OF o`,
+    [String(id)],
+  );
+  const current = rows[0] as { id: string; due_date: string; status: string };
+  if (current.due_date !== order.due_date || current.status !== order.status) {
+    await client.query("UPDATE orders SET due_date = $1, status = $2::order_status WHERE id = $3", [order.due_date, order.status, current.id]);
+  }
+  return order.status;
+});
+```
+
+The most instructive bug was in the sidebar. The collapse cookie never seemed to be read, even though the server clearly received it. The cause: `SIDEBAR_COOKIE` was exported from the sidebar's `"use client"` module, so the server component that imported it got a client-reference proxy instead of the string `"sidebar"`, and `cookies().get(proxy)` never matches. Moving the constant into a plain `sidebar-state.ts` fixed it. A second sidebar problem showed up in the e2e run: with a cookie set, the Suspense fallback still painted at the default width, so the sidebar visibly jumped as the streamed version arrived. A six-line inline script in `<head>` now copies the cookie onto `<html data-sidebar>` before first paint, and the CSS sizes the fallback from it. The shell stays static, and the first paint is right whether or not there's a cookie.
+
+The tests found smaller things too. The panel's status chips used `sr-only` radios that couldn't be clicked. A done stage hidden by its category vanished the moment it was unticked, instead of staying listed until saved. Typing into the panel before hydration lost the value, so the panel's controls now stay disabled until React has hydrated. One conflict went back to the author: white on the design's avatar orange fails the contrast check the spec itself requires, so the avatar became `#b06223`, the second deliberate departure from the design's colours. The suite finished at 232 unit, 165 integration and 121 end-to-end tests, all passing, on the third run.
