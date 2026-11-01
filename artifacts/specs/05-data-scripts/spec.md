@@ -1,17 +1,20 @@
-# Spec — 04-data-scripts
+# Spec — 05-data-scripts
 
 - Date: 20261031-140121
-- Feature: 04-data-scripts
+- Feature: 05-data-scripts
 - Phase: 1 (Spec)
 
-> Part 4 of 4 of the FIB OM migration. Read with the overview
+> Part 5 of 5 of the FIB OM migration. Read with the overview
 > [`artifacts/docs/nextjs-vercel-neon-migration.md`](../../docs/nextjs-vercel-neon-migration.md)
-> (sections O1–O9). Depends on `02-basic-crud` (schema) and `03-custom-behaviour`
-> (contract-test fixture). Includes the cutover plan.
+> (sections O1–O9). Depends on `02-basic-crud` (schema), `03-seed-dummy` (production guard) and
+> `04-custom-behaviour` (notcher feed). Includes the cutover plan.
+>
+> `seed-dummy` was extracted into its own feature, `03-seed-dummy`, on 2026-11-01; its design and
+> acceptance criteria now live there.
 
 ## Summary
 
-Three scripts to get data into the new system, run by an operator from a trusted machine (never from CI), and the cutover plan. `scripts/snapshot.sh` connects to the **production MySQL database** (the live PHP app's) and takes a full dump, together with a capture of the production notcher feed. `scripts/seed-old.ts` loads the reference data (clients and the product catalogue) from a snapshot into the new schema, keeping ids, cleaning the data and verifying the result, and sets the order id sequences above the legacy maximum. `scripts/seed-dummy.ts` fills a local or staging database with synthetic data. Orders, order items, delivery dockets, invoices and users are never imported.
+Two scripts to get data into the new system, run by an operator from a trusted machine (never from CI), and the cutover plan. `scripts/snapshot.sh` connects to the **production MySQL database** (the live PHP app's) and takes a full dump, together with a capture of the production notcher feed. `scripts/seed-old.ts` loads the reference data (clients and the product catalogue) from a snapshot into the new schema, keeping ids, cleaning the data and verifying the result, and sets the order id sequences above the legacy maximum. (`scripts/seed-dummy.ts`, which fills a local or staging database with synthetic data, is spec 03.) Orders, order items, delivery dockets, invoices and users are never imported.
 
 ## User-visible behaviour
 
@@ -27,9 +30,7 @@ For developers and operators:
 - **`scripts/seed-old.ts --target <local|staging|production> <snapshot dir>`** (`npm run seed:old -- …`)
   - Restores the snapshot folder's `mysqldump` into a scratch MySQL container on the operator's machine (`SCRATCH_MYSQL_URL`, a `mysql:5.7` container, matching production), reads the reference tables from it, maps them to the new schema, and writes them to the target (`DATABASE_URL_UNPOOLED`). `--target` is required and only labels the target for the safety guards; the connection always comes from `DATABASE_URL_UNPOOLED`.
   - Prints a summary: rows copied per table, orphaned products and records missing a required field skipped (with ids), categories v1 doesn't know (flags off), sequence values set, and the verification result.
-- **`scripts/seed-dummy.ts --target <local|staging>`** (`npm run seed:dummy -- --target …`)
-  - **Wipes and replaces** all app data: truncates every app table except `users` (so staff can still log in) and the Atlas revisions table, then fills them with synthetic data. **Refuses `--target production`**, and refuses to run without `--target`.
-- **`seed-old --wipe-orders`**: needed to reload real reference data into a database that has (dummy) orders, e.g. staging after `seed-dummy`. Deletes all orders, order items and delivery dockets first. Rejected with `--target production`.
+- **`seed-old --wipe-orders`**: needed to reload real reference data into a database that has (dummy) orders, e.g. staging after `seed-dummy` (spec 03). Deletes all orders, order items and delivery dockets first. Rejected with `--target production`.
 - **Trusted machine only (decided 2026-10-31).** Legacy data (client details and order history) never passes through GitHub Actions. There is **no** `migrate-reference-data.yml` workflow. An operator runs `snapshot.sh` and `seed-old` from a trusted machine with Docker, the MySQL 5.7 client tools (`mysqldump`, `mysql`) and Node 24. This is a deliberate exception to "CI only", which still applies to schema migrations and deploys.
   - Credentials (`SOURCE_MYSQL_URL`, read-only; the target branch's `DATABASE_URL_UNPOOLED`) are supplied as environment variables for the session only, never written to a committed file. `.env.tpl` lists the operator-only variables commented out (spec 01). They are not stored as GitHub secrets.
   - Before loading staging or production, `seed-old --target staging|production` asks the operator to type the target name to confirm (skipped for `local`).
@@ -47,7 +48,7 @@ The **production MySQL database** behind the legacy PHP app (`legacy-prod/`). (T
   - category renames (Bag → Bag Filters, Flat Panel → Flat Panel Filters, Holding Frame → Holding Frames, VForm → V Form Panel Filters)
   - the four added categories (Wire Products, Carbon Filters, Filter Units, Media)
   - the per-category `show_*` column flags
-  - dropped columns (`clients.markup`, `products.price*`) are not imported; the notcher feed emits them empty (spec 03).
+  - dropped columns (`clients.markup`, `products.price*`) are not imported; the notcher feed emits them empty (spec 04).
 
 ### `seed-old` steps
 Inside one transaction on the target:
@@ -81,18 +82,14 @@ The script is idempotent and safe to re-run up to cutover.
 ### Not imported
 Production MySQL tables (Doctrine entity names): `order_data` (orders), `order_product` (order items), `delivery_docket`, `invoice`, `user`, `role` and the user–role link table. Order history lives only in the archived dump. (Only `client`, `product`, `product_category`, `product_type`, `product_size` and `product_media` are imported.)
 
-### `seed-dummy`
-- Generates a deterministic (seeded) synthetic dataset for every table: reference data, orders, order items and delivery dockets, covering every order and docket status, every category attribute value, NULLs in every optional column, and both values of every stage status. It is built on the notcher contract-test fixture from spec 03.
-- Wipe and replace: truncates every app table except `users` and the Atlas revisions table, in one transaction, then inserts the synthetic dataset. It never uses `RESTART IDENTITY` on `orders` or `order_items`, so their id counters stay above the legacy maximum. On staging this replaces the real clients and products until `seed-old --wipe-orders` is run again.
-- Production guard: `--target` is required and must be `local` or `staging`; `production` is rejected before any connection is made.
-
 ### Production guard (all data scripts)
+- Built in spec 03 (`scripts/lib/target-guard.ts`); `seed-old` reuses it with the rules below.
 - The operator's environment sets `PRODUCTION_DB_HOST` (the production Neon branch's endpoint host). It is required whenever `--target` is `staging` or `production`.
-- Before connecting, `seed-old` and `seed-dummy` compare the host in `DATABASE_URL_UNPOOLED` with `PRODUCTION_DB_HOST`. If they match and `--target` is not `production`, the script refuses. `seed-dummy` and `seed-old --wipe-orders` refuse whenever the host matches, whatever `--target` says.
+- Before connecting, `seed-old` and `seed-dummy` compare the host in `DATABASE_URL_UNPOOLED` with `PRODUCTION_DB_HOST`. If they match and `--target` is not `production`, the script refuses. `seed-dummy` (spec 03) and `seed-old --wipe-orders` refuse whenever the host matches, whatever `--target` says.
 
-### Notcher production capture (moved here from spec 03)
+### Notcher production capture (moved here from spec 04)
 - **`scripts/notcher-capture.sh`:** calls `https://fibatron.com/vw-notcher-api?key=…` on production with the key from `NOTCHER_API_KEY` (set to the production value on the trusted machine for the session; never logged) and saves the status, headers and raw body into the snapshot directory. `snapshot.sh` runs it in the same minute as the `mysqldump`.
-- **`scripts/notcher-capture-check.ts <snapshot dir>`:** restores the snapshot into the scratch MySQL, loads the captured items (their orders, items, clients, products and lookups, mapped with the same code as `seed-old` plus a capture-only mapping for orders and order items) into a throwaway local Postgres with the new schema, calls the new route (spec 03), and diffs the raw bytes and `Content-Type` against the capture. The only allowed differences are the removed fields (`markup`, `price*`, `invoice`) and `order.deliverydocket` (the notcher machine ignores docket data), listed explicitly in the script. Any other difference is fixed in spec 03's transform and its golden file updated.
+- **`scripts/notcher-capture-check.ts <snapshot dir>`:** restores the snapshot into the scratch MySQL, loads the captured items (their orders, items, clients, products and lookups, mapped with the same code as `seed-old` plus a capture-only mapping for orders and order items) into a throwaway local Postgres with the new schema, calls the new route (spec 04), and diffs the raw bytes and `Content-Type` against the capture. The only allowed differences are the removed fields (`markup`, `price*`, `invoice`) and `order.deliverydocket` (the notcher machine ignores docket data), listed explicitly in the script. Any other difference is fixed in spec 04's transform and its golden file updated.
 - **No docket test capture:** the notcher machine doesn't use docket data, so `order.deliverydocket` isn't checked against production and nothing is ever written to production.
 - The capture check runs on the trusted machine (it uses real data), before staging UAT and again on cutover day before the DNS switch.
 
@@ -113,9 +110,9 @@ Production MySQL tables (Doctrine entity names): `order_data` (orders), `order_p
 - The software already uses HTTPS, so no HTTP→HTTPS redirect check is needed.
 
 **Steps**
-1. **Build:** specs 01–03 complete on staging. Only `staging.fibatron.com` points at the new app; production DNS (`fibatron.com`) keeps pointing at the PHP site until the switchover, which happens only after extensive testing on staging. Reference data loaded into `staging` by the operator (`snapshot.sh`, then `seed-old --target staging --wipe-orders`) from a recent snapshot.
+1. **Build:** specs 01–04 complete on staging. Only `staging.fibatron.com` points at the new app; production DNS (`fibatron.com`) keeps pointing at the PHP site until the switchover, which happens only after extensive testing on staging. Reference data loaded into `staging` by the operator (`snapshot.sh`, then `seed-old --target staging --wipe-orders`) from a recent snapshot.
 2. **Notcher capture check:** run the capture check on the staging snapshot.
-3. **UAT:** staff check every screen against web3 (checklist built from specs 01–03), and the notcher machine is tested against the staging URL, including with an empty feed and with rows in a different order (AC-18).
+3. **UAT:** staff check every screen against web3 (checklist built from specs 01–04), and the notcher machine is tested against the staging URL, including with an empty feed and with rows in a different order (AC-18).
 4. **Agree a cutover point with the business.** Staff **close all open orders in the old system** before cutover; they are not re-entered.
 5. **Cutover day:**
    - freeze client and product edits in the old system
@@ -141,13 +138,13 @@ Automated (integration tests against local containers: MySQL 5.7 as source and s
 6. **AC-6** Verification checks row counts (source minus all skipped records), checksums and FK resolution; if a check fails (test: corrupt one row in the target mid-run), the whole transaction rolls back and the target is unchanged.
 7. **AC-7** Running `seed-old` twice with the same snapshot leaves the target in the same state.
 8. **AC-8** `seed-old` writes no rows to `orders`, `order_items`, `delivery_dockets` or `users`; against a target that has orders it exits non-zero and changes nothing unless `--wipe-orders` is given; with `--wipe-orders` it deletes the orders, order items and dockets and then loads; `--wipe-orders` with target production exits non-zero before connecting.
-9. **AC-9** `seed-dummy --target local` fills every table with rows covering every order status, docket status, category attribute value, NULL optional columns and both values of every stage status; the notcher contract test (spec 03) passes against it; running it twice with the same seed produces identical data; any existing clients, products, orders and dockets are gone afterwards, while existing `users` rows are unchanged.
-10. **AC-10** `seed-dummy --target production` and `seed-dummy` with no `--target` exit non-zero without opening a database connection; after `seed-dummy`, the next `orders` and `order_items` ids are still above the legacy maximum.
-11. **AC-11** With `DATABASE_URL_UNPOOLED` pointing at the host in `PRODUCTION_DB_HOST`: `seed-dummy` (any target), `seed-old --wipe-orders` (any target) and `seed-old --target staging` all exit non-zero before connecting; with `--target staging|production` and `PRODUCTION_DB_HOST` unset, `seed-old` exits non-zero, and so does `seed-dummy --target staging`.
+9. ~~**AC-9**~~ — moved to `03-seed-dummy` (its AC-1 to AC-3) on 2026-11-01.
+10. ~~**AC-10**~~ — moved to `03-seed-dummy` (its AC-4 and AC-6) on 2026-11-01.
+11. **AC-11** With `DATABASE_URL_UNPOOLED` pointing at the host in `PRODUCTION_DB_HOST`: `seed-old --wipe-orders` (any target) and `seed-old --target staging` exit non-zero before connecting; with `--target staging|production` and `PRODUCTION_DB_HOST` unset, `seed-old` exits non-zero. (The `seed-dummy` cases are spec 03's AC-7.)
 12. **AC-12** A client with an empty name in the source is skipped and logged, and the row-count check accounts for it.
 13. **AC-13** `seed-old --target staging` and `--target production` refuse to proceed unless the operator types the target name at the prompt (non-interactive runs without confirmation exit non-zero before connecting); `seed-old` without `--target` exits non-zero.
 14. **AC-14** `notcher-capture-check.ts` against a fixture snapshot (MySQL dump + a capture produced from it) passes, and fails with a byte diff when one character of the capture is changed outside the allowed fields.
-15. **AC-15** No file under `.github/workflows/` runs `snapshot.sh`, `notcher-capture.sh`, `notcher-capture-check.ts`, `seed-old` or `seed-dummy`, and no workflow references `SOURCE_MYSQL_URL`.
+15. **AC-15** No file under `.github/workflows/` runs `snapshot.sh`, `notcher-capture.sh`, `notcher-capture-check.ts` or `seed-old`, and no workflow references `SOURCE_MYSQL_URL`.
 
 Operational (recorded check, not CI):
 
@@ -166,13 +163,12 @@ Operational (recorded check, not CI):
 - Re-entering open orders in the new system.
 - Copying legacy password hashes.
 - Ongoing sync between the old and new systems.
-- `seed-dummy` against production.
 - Running any data script from CI.
 
 ## Open questions
 
 1. ~~**OQ-1 Notcher host**~~ — resolved 2026-10-31: `https://fibatron.com`, which serves nothing besides this app; source IP not stable, so no allowlist. Vercel's default `fibatron.com` → `www` redirect is used, provided the notcher is proven to follow it (AC-18 run (d)); otherwise the feed path is exempted. The `key` value is handed over securely at deploy time, not in this doc.
-2. ~~**OQ-2 `seed-dummy` on staging**~~ — resolved 2026-10-31: wipe and replace all app data (users kept). `seed-old --wipe-orders` (never on production) reloads real reference data afterwards.
+2. ~~**OQ-2 `seed-dummy` on staging**~~ — moved to `03-seed-dummy` (its OQ-1) on 2026-11-01. Resolved 2026-10-31: wipe and replace all app data (users kept). `seed-old --wipe-orders` (never on production) reloads real reference data afterwards.
 3. ~~**OQ-3 Sequence start**~~ — resolved 2026-10-31: `seed-old` sets them from the legacy max ids in the snapshot (step 6).
 4. ~~**OQ-4 Data through CI**~~ — resolved 2026-10-31: trusted machine only; no data workflow.
 5. ~~**OQ-5 Production MySQL access**~~ — resolved 2026-10-31: production runs MySQL 5.7; a read-only MySQL user will be created for `snapshot.sh` before the first snapshot.

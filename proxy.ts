@@ -14,7 +14,7 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    // Auth must never run on the notcher feed (spec 03) or Auth.js's own endpoints; isPublicPath covers the rest.
+    // Auth must never run on the notcher feed (spec 04) or Auth.js's own endpoints; isPublicPath covers the rest.
     "/((?!api/auth|vw-notcher-api$|_next/static|_next/image|favicon\\.ico$).*)",
   ],
 };

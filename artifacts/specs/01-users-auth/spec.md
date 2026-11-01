@@ -4,7 +4,7 @@
 - Feature: 01-users-auth
 - Phase: 1 (Spec)
 
-> Part 1 of 4 of the FIB OM migration. Read with the overview
+> Part 1 of 5 of the FIB OM migration. Read with the overview
 > [`artifacts/docs/nextjs-vercel-neon-migration.md`](../../docs/nextjs-vercel-neon-migration.md)
 > (sections O1–O9). Next: `02-basic-crud`.
 
@@ -18,7 +18,7 @@ Stand up the new app and everything around it: the Next.js project, theme, datab
 - An email/password login page at `/login`, on the background image from `web3/src/assets/bg.jpg` (copied into `public/`), titled "Fibatron". (Using the logo `fibatron_logo128x128.png` on the login card is optional.)
 - A failed login shows one generic message, "Email or password is incorrect" **(improvement: no account enumeration)**.
 - **Sign-in attempts are rate-limited in the app** (the project is on Vercel Hobby, so no Firewall rule): at most 10 sign-in attempts per minute per IP. The 11th attempt within the window is refused without checking the password and shows "Too many sign-in attempts. Try again in a minute." Only sign-in attempts count; normal page use, session checks and sign-out are never limited.
-- Every route needs a session except `/login`, static assets and `/vw-notcher-api` (protected by its own `key` in `03-custom-behaviour`).
+- Every route needs a session except `/login`, static assets and `/vw-notcher-api` (protected by its own `key` in `04-custom-behaviour`).
 - An unauthenticated or expired session sends the user to `/login?callbackUrl=<current path>`, and after signing in they go back there **(improvement: web3 always drops you at the default page)**. Only internal paths are honoured; anything else falls back to `/`.
 - Sessions are a JWT cookie with an 8-hour rolling lifetime (web3: fixed 1 hour).
 - A sign-out action sits in the top bar, showing the signed-in email **(improvement: web3 shows no identity)**.
@@ -62,7 +62,7 @@ Stand up the new app and everything around it: the Next.js project, theme, datab
 - **Local database:** `docker-compose.yml` provides a local Postgres 17 for development, integration tests and Playwright, behind a Neon-compatible HTTP/WebSocket proxy; CI runs the same pair as services. `lib/db/index.ts` points `neonConfig` at the proxy when `DATABASE_URL` isn't a Neon host, so the same `@neondatabase/serverless` driver is used in integration tests, Playwright (`next start`), CI and on Neon (author decision at task validation). Exception (added 2026-11-01): under `next dev` against a local database, `lib/db/index.ts` connects straight to Postgres with `pg`, because the local proxy re-authenticates and opens a new connection for every query (~250 ms each); `LOCAL_DB_VIA_PROXY=1` switches dev back to the proxy (author decision).
 - **CI / deploy:** `ci.yml` and `deploy.yml` as O7.3, plus a Playwright end-to-end step in `ci.yml` (author decision at task validation). `ci.yml` also runs gitleaks over the repo. It does not run `atlas migrate lint`, which needs Atlas Pro since v0.38 (author decision 2026-10-31, review of `02-basic-crud`); `atlas migrate validate` checks migration integrity, and review catches destructive changes. The staging domain comes from the GitHub repo variable `STAGING_DOMAIN` (`staging.fibatron.com`). The first deploy is a manual production run so the staging guard passes.
 - **Vercel plan:** Hobby (author decision). No Firewall rules are relied on.
-- **Config:** `.env.tpl` lists `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AUTH_SECRET`, `NOTCHER_API_KEY`, `FROM_CLIENT_ID` with no values. It also lists, commented out, the operator-only variables used by spec 04's data scripts (`SOURCE_MYSQL_URL`, `SCRATCH_MYSQL_URL`, `PRODUCTION_DB_HOST`), with a note that they are set only on the trusted machine. `.vercelignore` as O7.4. GitHub/Vercel/Neon configuration as O7.4.
+- **Config:** `.env.tpl` lists `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AUTH_SECRET`, `NOTCHER_API_KEY`, `FROM_CLIENT_ID` with no values. It also lists, commented out, the operator-only variables used by spec 05's data scripts (`SOURCE_MYSQL_URL`, `SCRATCH_MYSQL_URL`, `PRODUCTION_DB_HOST`), with a note that they are set only on the trusted machine. `.vercelignore` as O7.4. GitHub/Vercel/Neon configuration as O7.4.
 - **Security:** rotate the legacy hardcoded DigitalOcean DB password (O8).
 
 ## Acceptance criteria
@@ -99,7 +99,7 @@ Operational (recorded check, not CI):
 ## Out of scope
 
 - The Users admin screen and every other resource screen (`02-basic-crud`).
-- The notcher feed itself (`03-custom-behaviour`); this feature only keeps its path free of auth redirects.
+- The notcher feed itself (`04-custom-behaviour`); this feature only keeps its path free of auth redirects.
 - Dashboard content beyond the heading.
 - Migrating legacy users or their password hashes (accounts are recreated).
 - Password reset by email, self sign-up, roles or permissions.

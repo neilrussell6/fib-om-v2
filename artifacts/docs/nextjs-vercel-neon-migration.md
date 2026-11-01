@@ -1,16 +1,17 @@
 # FIB OM migration to Next.js + Vercel + Neon: overview
 
 - Author: Neil Russell (original draft `migration-spec-nextjs-vercel-neon.md`, 2026-10-31)
-- Last revised: 2026-10-31
+- Last revised: 2026-11-01 (`seed-dummy` extracted into `03-seed-dummy`; later specs renumbered)
 
-This is the shared background for the migration. The work itself is specified in four feature specs, built in this order:
+This is the shared background for the migration. The work itself is specified in five feature specs, built in this order:
 
 | # | Feature spec | Contents |
 |---|---|---|
 | 1 | [`01-users-auth`](../specs/01-users-auth/spec.md) | Scaffold, CI/deploy, theme, app shell, login, sessions, Dashboard, `create-user` script |
 | 2 | [`02-basic-crud`](../specs/02-basic-crud/spec.md) | Full schema, shared list/form/detail building blocks, plain CRUD for every resource including Users, error messages, print styles |
-| 3 | [`03-custom-behaviour`](../specs/03-custom-behaviour/spec.md) | Everything that deviates from basic CRUD: order items panel, category-driven columns, stage toggles, derived columns, docket print layout and order management, the notcher feed |
-| 4 | [`04-data-scripts`](../specs/04-data-scripts/spec.md) | `snapshot.sh`, `seed-old`, `seed-dummy` (run from a trusted machine), and cutover |
+| 3 | [`03-seed-dummy`](../specs/03-seed-dummy/spec.md) | `seed-dummy` script (synthetic data for local and staging, never production) and the shared production guard for data scripts |
+| 4 | [`04-custom-behaviour`](../specs/04-custom-behaviour/spec.md) | Everything that deviates from basic CRUD: order items panel, category-driven columns, stage toggles, derived columns, docket print layout and order management, the notcher feed |
+| 5 | [`05-data-scripts`](../specs/05-data-scripts/spec.md) | `snapshot.sh`, `seed-old` (run from a trusted machine), and cutover |
 
 Each spec refers to sections here as **O1–O9**. Every **(improvement)** in the specs was approved by the product owner on 2026-10-31.
 
@@ -37,7 +38,7 @@ FIB OM is an internal order-management tool for Fibatron, a filter manufacturer.
 
 ### O2.1 Data model (inferred from UI resources and notcher query)
 
-The DDL (`sql/migrations/schema.sql`, `views.sql`, `data-ddl-updates.sql`) is **not in the repo**. v1's schema and data are available outside this repo in `../fib-om-v2-reference/migrations/`, the final v1 reference (no newer v1 dump is coming): `data.sql` (a full `pg_dump`, schema and data, Postgres 12.7), then `data-ddl-updates.sql`, `data-dml-updates.sql` and `views.sql`, applied in that order. They contain real client data and are never copied into this repo. They are the authority for v1's columns, the view formulas (`views.sql`) and the derived-column fixture. Separately, the author will provide a **production MySQL dump**; it is the authority for the import mapping (spec 04) and the notcher capture check (spec 03). The tables below were reconstructed from the code and are checked against these files.
+The DDL (`sql/migrations/schema.sql`, `views.sql`, `data-ddl-updates.sql`) is **not in the repo**. v1's schema and data are available outside this repo in `../fib-om-v2-reference/migrations/`, the final v1 reference (no newer v1 dump is coming): `data.sql` (a full `pg_dump`, schema and data, Postgres 12.7), then `data-ddl-updates.sql`, `data-dml-updates.sql` and `views.sql`, applied in that order. They contain real client data and are never copied into this repo. They are the authority for v1's columns, the view formulas (`views.sql`) and the derived-column fixture. Separately, the author will provide a **production MySQL dump**; it is the authority for the import mapping (spec 05) and the notcher capture check (spec 04). The tables below were reconstructed from the code and are checked against these files.
 
 **In scope for data migration**
 
@@ -175,23 +176,23 @@ fib-om-v2/
     (app)/product-types/…            [02]
     (app)/product-sizes/…            [02]
     (app)/product-media/…            [02]
-    vw-notcher-api/route.ts          [03]
+    vw-notcher-api/route.ts          [04]
   components/ui/                     [01] shadcn generated
   components/data-table/             [02] generic table, filter bar, pagination
   lib/db/index.ts                    [01] sql (neon tagged template) + pool + tx() helper
   lib/db/types.ts                    [01] row types written by hand
   lib/db/queries/*.ts                [01/02] one file per resource
   lib/db/errors.ts                   [02] SQLSTATE → message mapping
-  lib/db/sql/notcher-feed.sql        [03] legacy notcher query, ported
+  lib/db/sql/notcher-feed.sql        [04] legacy notcher query, ported
   lib/auth.ts                        [01]
   db/migrations/*.sql                [01+] Atlas versioned migrations, written by hand
   db/migrations/atlas.sum            [01+]
   scripts/db.sh                      [01] Atlas wrapper (migrate/status/validate/new/hash)
   scripts/create-user.ts             [01]
-  scripts/snapshot.sh                [04] dump the legacy DB
-  scripts/seed-old.ts                [04] load reference data from a snapshot
-  scripts/seed-dummy.ts              [04] synthetic data
-  tests/notcher-contract.test.ts     [03]
+  scripts/snapshot.sh                [05] dump the legacy DB
+  scripts/seed-old.ts                [05] load reference data from a snapshot
+  scripts/seed-dummy.ts              [03] synthetic data
+  tests/notcher-contract.test.ts     [04]
   proxy.ts                           [01]
   atlas.hcl                          [01]
   .vercelignore                      [01]
@@ -226,7 +227,7 @@ Schema migrations and Vercel deployments **only ever run from GitHub Actions**. 
 |---|---|---|---|---|
 | Local | `npm run dev` | n/a | local Postgres container (or a personal Neon branch) | `http://localhost:3000` |
 | Staging | every push to `main` that passes CI | preview, aliased to a fixed staging domain | `staging` | `https://staging.fibatron.com` |
-| Production | manual **Actions → Deploy → Run workflow** (`workflow_dispatch`) | production (`--prod`) | `production` | `https://www.fibatron.com` (primary); `fibatron.com` redirects to it with Vercel's default `308`. The notcher calls `https://fibatron.com/vw-notcher-api` and must be proven to follow that redirect (spec 04) |
+| Production | manual **Actions → Deploy → Run workflow** (`workflow_dispatch`) | production (`--prod`) | `production` | `https://www.fibatron.com` (primary); `fibatron.com` redirects to it with Vercel's default `308`. The notcher calls `https://fibatron.com/vw-notcher-api` and must be proven to follow that redirect (spec 05) |
 
 There's a fixed `staging` Neon branch rather than one per preview, because CI applies migrations to a known database before each deploy.
 
@@ -253,10 +254,10 @@ There's a fixed `staging` Neon branch rather than one per preview, because CI ap
   - **`deploy-preview`** when CI succeeds on a push to `main` (`workflow_run`, checking out the tested commit), GitHub environment `staging`: (1) fail if no production deployment exists yet (Vercel auto-promotes a new project's first deployment); (2) checkout, set the git author for Vercel, `setup-node`, `npm i -g vercel`; (3) `vercel pull --environment=preview`; (4) `ariga/setup-atlas@v0`, then `ariga/atlas-action/migrate/apply@v1` with `dir: file://db/migrations`, `url: ${{ secrets.DATABASE_URL_UNPOOLED }}`, `revisions-schema: public`; (5) `vercel build`, `vercel deploy --prebuilt`; (6) alias to the staging domain through the Vercel API (`vercel alias` fails with team-scoped tokens).
   - **`deploy-production`** on `workflow_dispatch`, environment `production`: the same with `--environment=production`, migrations against the production branch, `vercel build --prod`, `vercel deploy --prebuilt --prod`.
   - Migrations run *before* build/deploy and stop the job if they fail. The very first deploy must be a manual production run.
-- **Data scripts** (`snapshot.sh`, `seed-old`, `seed-dummy`) never run in CI; an operator runs them from a trusted machine (spec 04).
+- **Data scripts** (`snapshot.sh`, `seed-old`, `seed-dummy`) never run in CI; an operator runs them from a trusted machine (specs 03 and 05).
 
 ### O7.4 Configuration
-- **GitHub:** repo variables `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `VERCEL_EMAIL`, `STAGING_DOMAIN`; repo secret `VERCEL_TOKEN`; environments `staging` and `production`, each with secret `DATABASE_URL_UNPOOLED`. `SOURCE_DATABASE_URL` is **not** stored in GitHub; the operator supplies it on the trusted machine (spec 04).
+- **GitHub:** repo variables `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `VERCEL_EMAIL`, `STAGING_DOMAIN`; repo secret `VERCEL_TOKEN`; environments `staging` and `production`, each with secret `DATABASE_URL_UNPOOLED`. `SOURCE_DATABASE_URL` is **not** stored in GitHub; the operator supplies it on the trusted machine (spec 05).
 - **Vercel:** one project (Next.js, Node 24), Git auto-deploys off; production domain on Production, staging domain assigned by CI; env vars per environment (Production and Preview): `DATABASE_URL` (pooled), `AUTH_SECRET` (different in each), `NOTCHER_API_KEY`, `FROM_CLIENT_ID`; secrets marked Sensitive (CI reads `DATABASE_URL_UNPOOLED` from GitHub, not Vercel). Plan: Hobby; no Firewall rules are relied on (sign-in rate limiting is in the app).
 - **Neon:** one project with branches `production` and `staging`. Create staging from production after the reference data is loaded. If Neon was added through the Vercel Marketplace, turn off its per-preview branch creation.
 - **Local:** `.env.tpl` → `.env`, with `DATABASE_URL` pointing at a local Postgres container. Install Atlas with `curl -sSf https://atlasgo.sh | sh`. `.vercelignore` excludes tooling directories (`.claude`, `.cursor`, test output), which break `vercel deploy --prebuilt`.

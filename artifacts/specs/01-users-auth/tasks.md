@@ -86,7 +86,7 @@ Built from `artifacts/specs/01-users-auth/spec.md` and the overview `artifacts/d
 ## Not in this feature
 
 - The Users admin screen and every other resource screen (`02-basic-crud`).
-- The notcher feed itself (`03-custom-behaviour`); this feature only keeps its path free of auth redirects.
+- The notcher feed itself (`04-custom-behaviour`); this feature only keeps its path free of auth redirects.
 - Dashboard content beyond the heading.
 - Migrating legacy users or their password hashes (accounts are recreated).
 - Password reset by email, self sign-up, roles or permissions.

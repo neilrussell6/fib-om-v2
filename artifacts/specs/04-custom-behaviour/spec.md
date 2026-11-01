@@ -1,12 +1,12 @@
-# Spec — 03-custom-behaviour
+# Spec — 04-custom-behaviour
 
 - Date: 20261031-140121
-- Feature: 03-custom-behaviour
+- Feature: 04-custom-behaviour
 - Phase: 1 (Spec)
 
-> Part 3 of 4 of the FIB OM migration. Read with the overview
+> Part 4 of 5 of the FIB OM migration. Read with the overview
 > [`artifacts/docs/nextjs-vercel-neon-migration.md`](../../docs/nextjs-vercel-neon-migration.md)
-> (sections O1–O9). Depends on `02-basic-crud`. Next: `04-data-scripts`.
+> (sections O1–O9). Depends on `02-basic-crud`; `03-seed-dummy` provides local and staging data. Next: `05-data-scripts`.
 
 ## Summary
 
@@ -62,7 +62,7 @@ GET {origin}/vw-notcher-api?key=<api key>
 ```
 
 - The **path** `/vw-notcher-api` (no trailing slash) and the **query parameter** `key` are fixed. The origin is whatever host the app is deployed on; no hostnames are hardcoded.
-- The app itself must not change the request: no trailing-slash rewrite and no auth redirect. In production, Vercel's default domain redirect `fibatron.com` → `www.fibatron.com` (a `308`) is allowed **only if** the notcher software is proven on staging to follow it and still read the data; otherwise the feed path is exempted from the redirect (spec 04, cutover plan).
+- The app itself must not change the request: no trailing-slash rewrite and no auth redirect. In production, Vercel's default domain redirect `fibatron.com` → `www.fibatron.com` (a `308`) is allowed **only if** the notcher software is proven on staging to follow it and still read the data; otherwise the feed path is exempted from the redirect (spec 05, cutover plan).
 - **Which items (as production):** only order items where the order's status is New (legacy `2`), the item's frame status is not done (legacy `frame_status = 0`), and the item's product has `notcher` set. Ordered by item id ascending.
 - **Body (as production):** the PHP `json_encode` (default flags) of an array of order-item objects: no whitespace, `/` escaped as `\/`, non-ASCII escaped as `\uXXXX`. Keys in the PHP entity property order:
   - item: `id, order, partnumber, product, quantity, height, width, comment, framestatus, mediastatus, wirestatus, assemblestatus, packagestatus, cutcount, cutstatus, sowcount, sowstatus`
@@ -73,10 +73,10 @@ GET {origin}/vw-notcher-api?key=<api key>
 - **Values:** taken from the new schema and transformed in TypeScript into production's types and formats: integers as JSON numbers (ids, quantity, height, width, statuses, counts, `order.status` mapped `new→2`, `complete→4`, `archived→5`, `product.notcher`); `order.date`/`order.duedate` formatted like PHP `d M` (e.g. `07 Jan`); text as JSON strings. `cutstatus` and `sowstatus` are `-1` when not done and `1` when done; the other stage statuses are `0`/`1`.
 - **Integers are always unquoted numbers:** ids, `quantity`, `height`, `width`, `cutcount`, `sowcount`, the stage statuses, `order.status` and `product.notcher` are converted to JavaScript numbers before encoding (the database driver returns `bigint` as strings), so they appear as e.g. `"height":500`, never `"height":"500"`.
 - **Blank text is `""`, not `null`:** production's MySQL text columns are `NOT NULL`, so blank values appear as `""`. Every text field production sends as a string (`partnumber`, `comment`, `order.ordernumber`, all client text fields, product `name` and `efficiency`, category/type/size/media `name` and type `code`) is emitted as `""` when the new schema holds `NULL`.
-- **`order.client.labelusepartnumber`:** a string, `"1"` when true and `"0"` when false (Doctrine maps it as `string`); confirmed or corrected by spec 04's capture check.
+- **`order.client.labelusepartnumber`:** a string, `"1"` when true and `"0"` when false (Doctrine maps it as `string`); confirmed or corrected by spec 05's capture check.
 - **`order.deliverydocket`:** `{}` when the order is on a delivery docket (PHP passes a raw Doctrine object to `json_encode`), `null` when it isn't. Not checked against production: the notcher machine ignores docket data.
 - **Fields the new schema doesn't have** (`client.markup`, `product.price`, `priceheight400`, `priceheight600`, `priceheight900`, `pricewidth`, and `order.invoice`): still emitted, in their positions, with an empty value (`null`).
-- **Production capture is the authority.** Where the code reading above and a real production response disagree (e.g. how `deliverydocket` serialises, whether `labelusepartnumber` is `"0"`/`"1"` or a number, what `cutstatus`/`sowstatus` hold), the capture wins. The capture and its check are a cutover gate in spec 04; any difference found there is fixed in this feature's transform.
+- **Production capture is the authority.** Where the code reading above and a real production response disagree (e.g. how `deliverydocket` serialises, whether `labelusepartnumber` is `"0"`/`"1"` or a number, what `cutstatus`/`sowstatus` hold), the capture wins. The capture and its check are a cutover gate in spec 05; any difference found there is fixed in this feature's transform.
 - **Headers:** `200`, the same `Content-Type` as production (PHP default, expected `text/html; charset=UTF-8`; confirmed by the capture), and production's `Access-Control-Allow-Origin: *` and `Access-Control-Allow-Methods: POST PUT DELETE GET`. Also `Cache-Control: no-store`; never cached by the CDN.
 - **Error path:** a database error returns `200` with body `error` (production returns the exception message; internal details are not exposed).
 - **Auth:** the `key` query parameter.
@@ -103,8 +103,8 @@ GET {origin}/vw-notcher-api?key=<api key>
   - `key` is compared with `crypto.timingSafeEqual` on equal-length buffers.
   - The legacy PHP source in `legacy-prod/` is gitignored (it contains credentials) and is never copied into the repo.
 - **Contract tests in this feature:**
-  - **CI golden test:** `tests/notcher-contract.test.ts` runs the route against a synthetic fixture (no real client data) covering every field, NULLs and blank text, non-ASCII text, `/` in text, every order status (only New included), both values of the frame status and notcher flag, and orders with and without a delivery docket, and compares with a committed golden file built from the rules above. If spec 04's production capture check later finds a difference, the transform is fixed and the golden file updated.
-  - The production capture and capture check against real production output belong to spec 04 (cutover gate).
+  - **CI golden test:** `tests/notcher-contract.test.ts` runs the route against a synthetic fixture (no real client data) covering every field, NULLs and blank text, non-ASCII text, `/` in text, every order status (only New included), both values of the frame status and notcher flag, and orders with and without a delivery docket, and compares with a committed golden file built from the rules above. If spec 05's production capture check later finds a difference, the transform is fixed and the golden file updated.
+  - The production capture and capture check against real production output belong to spec 05 (cutover gate).
   - Unit tests for `php-json-encode.ts` against known PHP outputs (strings with `/`, quotes, backslashes, control characters, accented letters, emoji).
 
 ## Acceptance criteria
@@ -158,15 +158,15 @@ All automated (unit, integration against Postgres with migrations applied, or Pl
 ## Out of scope
 
 - Any change to the notcher feed's URL, headers, body, filtering or error behaviour, and any change to the external notcher software.
-- Pointing the production host at Vercel and the cutover checks (`04-data-scripts`).
+- Pointing the production host at Vercel and the cutover checks (`05-data-scripts`).
 - Changing the feed's filter, paging it, or emitting `application/json`.
 - Running the legacy PHP app in CI.
-- The production capture and the capture check against real production output (`04-data-scripts`).
+- The production capture and the capture check against real production output (`05-data-scripts`).
 - Moving an order between dockets in one step (remove, then add).
 
 ## Open questions
 
 1. ~~**OQ-1 Derived columns: views or TypeScript?**~~ — resolved 2026-10-31: plain Postgres views.
 2. ~~**OQ-2 Real rows for derived-column tests**~~ — resolved 2026-10-31: extracted from the legacy reference files in `../fib-om-v2-reference/migrations/` (see Design).
-3. ~~**OQ-3 Notcher software behaviour**~~ — resolved 2026-10-31: unknown; tested on staging before cutover (spec 04). This spec orders by item id either way.
-4. ~~**OQ-4 Cut and sow status values**~~ — resolved 2026-10-31: `cutstatus`/`sowstatus` are `-1` when not done and `1` when done (production's defaults), confirmed by spec 04's production capture check before cutover.
+3. ~~**OQ-3 Notcher software behaviour**~~ — resolved 2026-10-31: unknown; tested on staging before cutover (spec 05). This spec orders by item id either way.
+4. ~~**OQ-4 Cut and sow status values**~~ — resolved 2026-10-31: `cutstatus`/`sowstatus` are `-1` when not done and `1` when done (production's defaults), confirmed by spec 05's production capture check before cutover.

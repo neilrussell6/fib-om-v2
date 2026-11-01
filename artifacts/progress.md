@@ -2,7 +2,9 @@
 
 Running log of where each feature stands in the workflow (`STRATEGY.md`). One bullet per step, oldest first; past entries are never edited.
 
-Shared background for all four features: `artifacts/docs/nextjs-vercel-neon-migration.md`. Earlier history of the combined spec (before the split into four features) is in `logs/nextjs-vercel-neon-migration/`.
+Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migration.md`. Earlier history of the combined spec (before the split into four features) is in `logs/nextjs-vercel-neon-migration/`.
+
+> 2026-11-01: `seed-dummy` was extracted into the new `03-seed-dummy`, built next. `03-custom-behaviour` became `04-custom-behaviour` and `04-data-scripts` became `05-data-scripts`; their spec and log folders were renamed. Entries written before then keep the old paths.
 
 ## 01-users-auth
 
@@ -81,7 +83,13 @@ Shared background for all four features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261101-003855 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/02-basic-crud/20261101-003855--book-changelog.md`
 - 20261101-003855 — Feature workflow complete (phases 1–4).
 
-## 03-custom-behaviour
+## 03-seed-dummy
+
+- 20261101-125349 — Phase 1, step "spec": done (extracted from `05-data-scripts`) — `artifacts/specs/03-seed-dummy/spec.md`
+
+## 04-custom-behaviour
+
+- 20261101-125349 — Renamed from `03-custom-behaviour`; spec references renumbered.
 
 - 20261031-140121 — Phase 1, step "spec": done — `artifacts/specs/03-custom-behaviour/spec.md`
 - 20261031-143655 — Phase 1, step "commit": done — commit `39c2bdb`
@@ -96,7 +104,9 @@ Shared background for all four features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261031-170516 — Phase 1, step "commit": done — commit `4328d14`
 - 20261031-170759 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/03-custom-behaviour/20261031-170759--book-changelog.md`
 
-## 04-data-scripts
+## 05-data-scripts
+
+- 20261101-125349 — Renamed from `04-data-scripts`; `seed-dummy` moved to `03-seed-dummy` — `logs/05-data-scripts/20261101-125349--spec-revision-changelog.md`
 
 - 20261031-140121 — Phase 1, step "spec": done — `artifacts/specs/04-data-scripts/spec.md`
 - 20261031-143655 — Phase 1, step "commit": done — commit `39c2bdb`

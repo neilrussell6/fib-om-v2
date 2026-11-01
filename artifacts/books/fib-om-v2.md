@@ -202,7 +202,7 @@ The `try` came from the second review round. A failed lookup at first counted as
 
 ---
 
-# 3. Custom behaviour (`03-custom-behaviour`)
+# 4. Custom behaviour (`04-custom-behaviour`)
 
 ## Spec
 
@@ -228,7 +228,7 @@ The final check against real production output moved to the data-scripts feature
 
 ---
 
-# 4. Data scripts (`04-data-scripts`)
+# 5. Data scripts (`05-data-scripts`)
 
 ## Spec
 

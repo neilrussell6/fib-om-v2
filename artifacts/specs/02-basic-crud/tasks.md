@@ -15,11 +15,11 @@ Built from `artifacts/specs/02-basic-crud/spec.md` and the overview `artifacts/d
 
 ### Schema (Atlas migrations)
 
-- [ ] Write the reference-data migration from v1's schema in `../fib-om-v2-reference/migrations/` (`data.sql` plus `data-ddl-updates.sql`): `clients`, `product_categories` (name plus every `show_*` boolean, one per order-item column in spec 03's fixed column list), `product_types`, `product_sizes` (name, plus any other v1 columns), `product_media`, `products`; snake_case columns; identity primary keys; only the required fields `NOT NULL`, every other text column nullable; `products.category_id/type_id/size_id/media_id` `NOT NULL` with FK `ON DELETE RESTRICT` (Design: Schema; Reference data and users; AC 2)
+- [ ] Write the reference-data migration from v1's schema in `../fib-om-v2-reference/migrations/` (`data.sql` plus `data-ddl-updates.sql`): `clients`, `product_categories` (name plus every `show_*` boolean, one per order-item column in spec 04's fixed column list), `product_types`, `product_sizes` (name, plus any other v1 columns), `product_media`, `products`; snake_case columns; identity primary keys; only the required fields `NOT NULL`, every other text column nullable; `products.category_id/type_id/size_id/media_id` `NOT NULL` with FK `ON DELETE RESTRICT` (Design: Schema; Reference data and users; AC 2)
 - [ ] Write the orders migration: enums `order_status` (`new | complete | archived`) and `docket_status` (`current | archived`); `delivery_dockets` (`from_client_id`, `to_client_id` FKs to clients `ON DELETE RESTRICT`, `date DEFAULT current_date`, `status DEFAULT 'current'`, generated `docket_number = lpad(id::text, 6, '0')`); `orders` (`client_id NOT NULL`, nullable `delivery_docket_id`, `order_number`, `date DEFAULT current_date`, `due_date`, `status DEFAULT 'new'`, FKs `ON DELETE RESTRICT`); no unique constraint on order number (Design: Schema; AC 2, AC 3)
 - [ ] Write the order-items migration: `order_id`, `product_id` `NOT NULL` with FK `ON DELETE RESTRICT`; part number, quantity, height, width, depth `NOT NULL`; comment; the category attributes with the enums `clip_type`, `clip_position`, `wire_mesh`, `wire_sides`, `media_mats`, `gasket` from the spec's attribute table; the 7 `<stage>_status` booleans `NOT NULL DEFAULT false`; no `CHECK` constraints on quantities or dimensions (Design: Schema; AC 2, AC 3)
 - [ ] Write the search migration: `CREATE EXTENSION pg_trgm` and a GIN trigram index on every text column used by a list filter or combobox search (AC 4)
-- [ ] Write the display-views migration: `products_v`, `orders_v`, `order_items_v`, `delivery_dockets_v` with the joined names each list, detail page and combobox shows (no derived formula columns; those are spec 03) (Design: Schema)
+- [ ] Write the display-views migration: `products_v`, `orders_v`, `order_items_v`, `delivery_dockets_v` with the joined names each list, detail page and combobox shows (no derived formula columns; those are spec 04) (Design: Schema)
 - [ ] Run `db:hash`, apply locally, and confirm `db:validate` and `atlas migrate lint --latest 1` pass (AC 1)
 - [ ] Add hand-written row types for every table and view in `lib/db/types.ts` (overview O5)
 
@@ -101,8 +101,8 @@ Each resource is two tasks: (a) zod schema, query module (allowlisted filters an
 
 ## Not in this feature
 
-- Order items panel on orders, category filter and category-driven columns, inline stage toggles, New-first order combobox, derived columns, docket print layout and adding/removing orders on a docket, the notcher feed (all `03-custom-behaviour`).
-- Importing legacy data and seed scripts (`04-data-scripts`). Tests create their own fixtures.
-- Setting the order id sequences above the legacy maximum (`04-data-scripts`).
+- Order items panel on orders, category filter and category-driven columns, inline stage toggles, New-first order combobox, derived columns, docket print layout and adding/removing orders on a docket, the notcher feed (all `04-custom-behaviour`).
+- Importing legacy data and seed scripts (`05-data-scripts`). Tests create their own fixtures.
+- Setting the order id sequences above the legacy maximum (`05-data-scripts`).
 - Bulk actions; roles or permissions; Dashboard content.
-- Checking the schema against the production MySQL dump (moved to `04-data-scripts`, where the import mapping is built; any missing columns are added there with a new migration).
+- Checking the schema against the production MySQL dump (moved to `05-data-scripts`, where the import mapping is built; any missing columns are added there with a new migration).

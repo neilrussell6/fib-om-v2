@@ -16,13 +16,13 @@ DATABASE_URL_UNPOOLED=
 # Auth.js signing secret (generate with: openssl rand -base64 32).
 AUTH_SECRET=
 
-# Notcher feed key (spec 03).
+# Notcher feed key (spec 04).
 NOTCHER_API_KEY=
 
 # Fibatron's own client id, used as the "from" client on delivery dockets (spec 02).
 FROM_CLIENT_ID=
 
-# Operator-only variables for spec 04's data scripts. Set them only on the
+# Operator-only variables for the data scripts (specs 03 and 05). Set them only on the
 # trusted machine, for the session; never in .env files that leave it.
 # SOURCE_MYSQL_URL=
 # SCRATCH_MYSQL_URL=

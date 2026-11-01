@@ -4,13 +4,13 @@
 - Feature: 02-basic-crud
 - Phase: 1 (Spec)
 
-> Part 2 of 4 of the FIB OM migration. Read with the overview
+> Part 2 of 5 of the FIB OM migration. Read with the overview
 > [`artifacts/docs/nextjs-vercel-neon-migration.md`](../../docs/nextjs-vercel-neon-migration.md)
-> (sections O1–O9). Depends on `01-users-auth`. Next: `03-custom-behaviour`.
+> (sections O1–O9). Depends on `01-users-auth`. Next: `03-seed-dummy`.
 
 ## Summary
 
-Create the full database schema and give every resource plain list, detail, create, edit and delete screens: Users, Clients, Products, Product Categories, Product Types, Product Sizes, Product Media, Orders, Order Items and Delivery Dockets. The screens share one set of building blocks (server-rendered table with URL-synced filters, sort and pagination; async reference combobox; form + Server Action pattern with toasts; delete confirmation; SQLSTATE error mapping; print styles) so that every resource behaves the same. Behaviour that goes beyond plain CRUD (order items panel, category-driven columns, stage toggles, derived columns, docket print layout and order management, notcher feed) is in `03-custom-behaviour`.
+Create the full database schema and give every resource plain list, detail, create, edit and delete screens: Users, Clients, Products, Product Categories, Product Types, Product Sizes, Product Media, Orders, Order Items and Delivery Dockets. The screens share one set of building blocks (server-rendered table with URL-synced filters, sort and pagination; async reference combobox; form + Server Action pattern with toasts; delete confirmation; SQLSTATE error mapping; print styles) so that every resource behaves the same. Behaviour that goes beyond plain CRUD (order items panel, category-driven columns, stage toggles, derived columns, docket print layout and order management, notcher feed) is in `04-custom-behaviour`.
 
 ## User-visible behaviour
 
@@ -59,19 +59,19 @@ Create the full database schema and give every resource plain list, detail, crea
 | Product sizes | name ↑ | name | name | name only (any other columns in v1's schema are stored and imported, but not shown or editable, as in web3) |
 | Product media | code ↑ | name, code | name, code, pleat spacing | name, code, pleat spacing (number) |
 
-- **Required fields (decided 2026-10-31):** only identifying fields are required: client name; product name, category, type, size and media; product category name; product type name and code; product size name; product media name and code. Every other reference-data field is optional (nullable; empty input is saved as NULL). The column list comes from v1's schema (`../fib-om-v2-reference/migrations/`); `04-data-scripts` checks it against the production MySQL dump.
+- **Required fields (decided 2026-10-31):** only identifying fields are required: client name; product name, category, type, size and media; product category name; product type name and code; product size name; product media name and code. Every other reference-data field is optional (nullable; empty input is saved as NULL). The column list comes from v1's schema (`../fib-om-v2-reference/migrations/`); `05-data-scripts` checks it against the production MySQL dump.
 - **Users:** you can't delete your own account ("You can't delete your own account"), and the last remaining user can't be deleted ("Can't delete the last user"). Passwords must be at least 12 characters (same shared zod rule as `create-user`, spec 01); they are stored only as bcrypt hashes and never displayed or returned.
 - **Product type filter (improvement):** filters on `type_id` (web3 wrongly puts the id onto `type_name`). Size and media stay as text filters on the joined names.
 
 ### Orders (basic)
 - List sorted by created date, newest first. Filters: client, order number, due date range, created date range, status, delivery docket. Columns: client (links to client), order number, delivery docket (shown zero-padded to 6 digits), created, due, status.
-- Create/edit: client (combobox, required), order number (required), due date (required), status (required, default New), delivery docket (combobox, optional, shown zero-padded). The docket combobox only offers dockets whose to-client is the order's client; the Server Action refuses any other docket with "delivery docket belongs to another client" (same rule as spec 03).
+- Create/edit: client (combobox, required), order number (required), due date (required), status (required, default New), delivery docket (combobox, optional, shown zero-padded). The docket combobox only offers dockets whose to-client is the order's client; the Server Action refuses any other docket with "delivery docket belongs to another client" (same rule as spec 04).
 - Status choices: New, Complete, Archived.
 - `date` (created date) isn't on the form; the database sets it (`DEFAULT current_date`).
-- Detail shows client, order number, created date, due date, status, delivery docket. (The order items panel is added in spec 03.)
+- Detail shows client, order number, created date, due date, status, delivery docket. (The order items panel is added in spec 04.)
 
 ### Order items (basic)
-- List sorted by order due date, newest first. Columns: client, order number, created, due, status. Filters: client, order, order status, due/created date ranges, type code, part number, H/W/D ranges. (The category filter and category-driven columns are added in spec 03.)
+- List sorted by order due date, newest first. Columns: client, order number, created, due, status. Filters: client, order, order status, due/created date ranges, type code, part number, H/W/D ranges. (The category filter and category-driven columns are added in spec 04.)
 - Detail page: order, product, type code/description, part number, quantity, height, width, depth, comment, every category attribute, order status and the 7 stage statuses (cut, sow, frame, media, wire, package, assemble).
 - Form fields: order, product (both comboboxes, required), part number, qty, H, W, D (all required), comment, then the category attributes and the 7 stage-status switches:
 
@@ -90,7 +90,7 @@ Create the full database schema and give every resource plain list, detail, crea
 - List sorted by date, newest first. Filters: to-client name, docket number, created date range, and status (always shown). Columns: to-client, docket number, date, status.
 - Create: to-client (combobox, required) and status. `date` comes from `DEFAULT current_date`; `fromclient_id` comes from the `FROM_CLIENT_ID` env var on the server and is not on the form. If `FROM_CLIENT_ID` is unset or doesn't match an existing client, create fails with "Could not create Delivery Docket: sender client is not configured" and the problem is logged. On success it goes to the **new docket's detail page**.
 - Edit: to-client (combobox) and status.
-- Detail (basic): date, docket number, from-client, to-client, status. (The print layout and order management replace this in spec 03.)
+- Detail (basic): date, docket number, from-client, to-client, status. (The print layout and order management replace this in spec 04.)
 
 ### Database errors and messages
 The new build maps **Postgres SQLSTATE codes** to web3's friendly wording in one helper, `lib/db/errors.ts`. Most cases are caught earlier by zod, so these are a backstop:
@@ -112,18 +112,18 @@ Any other error is logged on the server, and the user sees "Something went wrong
 
 ## Design
 
-- **Schema** (Atlas migrations, written from v1's schema in `../fib-om-v2-reference/migrations/`; the check against the production MySQL dump for columns the import needs is done in `04-data-scripts`; conventions O6):
+- **Schema** (Atlas migrations, written from v1's schema in `../fib-om-v2-reference/migrations/`; the check against the production MySQL dump for columns the import needs is done in `05-data-scripts`; conventions O6):
   - `clients`, `product_categories`, `product_types`, `product_sizes`, `product_media`, `products`, `orders`, `order_items`, `delivery_dockets`, with snake_case columns mapping 1:1 to the legacy columns in O2.1 (e.g. `address_shipping`, `label_use_part_number`, `millimetres_per_pleat`, `pleat_spacing`).
-  - Identity primary keys (so legacy ids can be inserted with `OVERRIDING SYSTEM VALUE` in spec 04).
+  - Identity primary keys (so legacy ids can be inserted with `OVERRIDING SYSTEM VALUE` in spec 05).
   - `products.category_id/type_id/size_id/media_id` `NOT NULL`, FK `ON DELETE RESTRICT`.
   - Reference data: only the required fields listed above are `NOT NULL`; every other text column is nullable (legacy had them all `NOT NULL`).
   - `orders.client_id` `NOT NULL`; `orders.delivery_docket_id` nullable; `orders.date DEFAULT current_date`; `orders.status` enum `order_status` (`new | complete | archived`), default `new`.
   - `order_items.order_id`, `product_id` `NOT NULL`, FK `ON DELETE RESTRICT`; required fields `NOT NULL`; the 7 `<stage>_status` booleans `NOT NULL DEFAULT false`; category enums as Postgres enums.
   - `delivery_dockets.status` enum `docket_status` (`current | archived`) default `current`; `date DEFAULT current_date`; `docket_number` a generated column `lpad(id::text, 6, '0')`; `from_client_id`, `to_client_id` FK to clients.
-  - `product_categories.show_*` booleans: one per order-item column in the fixed column list in spec 03.
+  - `product_categories.show_*` booleans: one per order-item column in the fixed column list in spec 04.
   - No unique constraint on order number; no `CHECK` constraints on quantities or dimensions.
   - `pg_trgm` extension and GIN trigram indexes on every text column used by a filter or combobox search.
-  - Display views `products_v`, `orders_v`, `order_items_v`, `delivery_dockets_v` with the joined names (O5). Derived formula columns are added in spec 03.
+  - Display views `products_v`, `orders_v`, `order_items_v`, `delivery_dockets_v` with the joined names (O5). Derived formula columns are added in spec 04.
 - **Error display names:** `lib/db/errors.ts` maps table names to display names (`clients` → "clients", `orders` → "orders", `order_items` → "order items", `delivery_dockets` → "delivery dockets", `products` → "products", `product_*` → "product categories/types/sizes/media").
 - **Shared building blocks:** `components/data-table/` (TanStack Table, `nuqs` URL state, filter bar with "Add filter", pagination), `ReferenceCombobox` (server search Route Handler or Server Action, debounce, 25 per page), a form helper wiring react-hook-form + zod + Server Action + toasts, a `ConfirmDialog`, `lib/db/errors.ts`, and print utilities.
 - **Query modules:** one file per resource in `lib/db/queries/`, following O5 (allowlisted filters/sorts, `count(*) OVER ()`, parameterised).
@@ -170,9 +170,9 @@ Automated (unit, integration against Postgres with migrations applied, or Playwr
 
 ## Out of scope
 
-- Order items panel on orders, category filter and category-driven columns, inline stage toggles, New-first order combobox, derived columns, docket print layout and adding/removing orders on a docket, the notcher feed (all `03-custom-behaviour`).
-- Importing legacy data and seed scripts (`04-data-scripts`). Tests create their own fixtures.
-- Setting the order id sequences above the legacy maximum (`04-data-scripts`).
+- Order items panel on orders, category filter and category-driven columns, inline stage toggles, New-first order combobox, derived columns, docket print layout and adding/removing orders on a docket, the notcher feed (all `04-custom-behaviour`).
+- Importing legacy data (`05-data-scripts`) and the dummy-data seed script (`03-seed-dummy`). Tests create their own fixtures.
+- Setting the order id sequences above the legacy maximum (`05-data-scripts`).
 - Bulk actions; roles or permissions; Dashboard content.
 
 ## Open questions
