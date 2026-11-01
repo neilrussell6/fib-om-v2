@@ -48,6 +48,7 @@ The **production MySQL database** behind the legacy PHP app (`legacy-prod/`). (T
   - category renames (Bag → Bag Filters, Flat Panel → Flat Panel Filters, Holding Frame → Holding Frames, VForm → V Form Panel Filters)
   - the four added categories (Wire Products, Carbon Filters, Filter Units, Media)
   - the per-category `show_*` column flags
+  - The names, renames, additions and flags come from `lib/data/v1-categories.ts`, created in spec 03 from these files; `seed-old` uses the same constant.
   - dropped columns (`clients.markup`, `products.price*`) are not imported; the notcher feed emits them empty (spec 04).
 
 ### `seed-old` steps
@@ -84,6 +85,7 @@ Production MySQL tables (Doctrine entity names): `order_data` (orders), `order_p
 
 ### Production guard (all data scripts)
 - Built in spec 03 (`scripts/lib/target-guard.ts`); `seed-old` reuses it with the rules below.
+- With `--target local`, the host in `DATABASE_URL_UNPOOLED` must be `localhost`, `127.0.0.1` or `db.localtest.me` (spec 03); any other host is refused before connecting.
 - The operator's environment sets `PRODUCTION_DB_HOST` (the production Neon branch's endpoint host). It is required whenever `--target` is `staging` or `production`.
 - Before connecting, `seed-old` and `seed-dummy` compare the host in `DATABASE_URL_UNPOOLED` with `PRODUCTION_DB_HOST`. If they match and `--target` is not `production`, the script refuses. `seed-dummy` (spec 03) and `seed-old --wipe-orders` refuse whenever the host matches, whatever `--target` says.
 
