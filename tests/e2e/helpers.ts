@@ -8,7 +8,7 @@ export const TEST_USER = {
 
 /** Creates the e2e user with the real create-user script (ignores "already exists"). */
 export function ensureTestUser(email = TEST_USER.email, password = TEST_USER.password): void {
-  const r = spawnSync("npx", ["tsx", "scripts/create-user.ts", email], {
+  const r = spawnSync("npx", ["tsx", "scripts/create-user.ts", "--target", "local", email], {
     env: { ...process.env, CREATE_USER_PASSWORD: password },
     input: "",
     encoding: "utf8",

@@ -1,4 +1,4 @@
-import { sql } from "@/lib/db";
+import { query, type Queryable, sql } from "@/lib/db";
 import type { UserRow } from "@/lib/db/types";
 
 export async function findUserByEmail(email: string): Promise<UserRow | null> {
@@ -26,13 +26,15 @@ export class UserExistsError extends Error {
   }
 }
 
-export async function createUser(email: string, passwordHash: string): Promise<UserRow> {
+/** Inserts a user; `db` is the app's connection unless a script passes its own client. */
+export async function createUser(email: string, passwordHash: string, db?: Queryable): Promise<UserRow> {
   const normalised = email.trim().toLowerCase();
   try {
-    const rows = await sql<UserRow>`
-      INSERT INTO users (email, password_hash) VALUES (${normalised}, ${passwordHash})
-      RETURNING id, email, password_hash, session_version, created_at
-    `;
+    const text = `INSERT INTO users (email, password_hash) VALUES ($1, $2)
+      RETURNING id, email, password_hash, session_version, created_at`;
+    const rows = db
+      ? ((await db.query(text, [normalised, passwordHash])).rows as UserRow[])
+      : await query<UserRow>(text, [normalised, passwordHash]);
     return rows[0];
   } catch (err) {
     if ((err as { code?: string }).code === "23505") throw new UserExistsError(normalised);

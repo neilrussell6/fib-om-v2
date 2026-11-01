@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Gitignored legacy snapshot and test output.
     "legacy-prod/**",
+    ".vercel/**",
     "coverage/**",
     "playwright-report/**",
     "test-results/**",

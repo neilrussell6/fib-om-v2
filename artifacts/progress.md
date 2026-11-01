@@ -43,6 +43,7 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261031-205620 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/01-users-auth/20261031-205620--book-changelog.md`
 - 20261031-205620 — Feature workflow complete (phases 1–4). Open: operational AC-20–22 (first production deploy, Vercel env vars, legacy DB password rotation); CI and deploy workflows not yet executed on GitHub.
 - 20261101-171508 — Change after completion (author decision, during `03-seed-dummy`): every local database connection goes direct to Postgres, and the local Neon proxy is removed — commit `2dbddae`, `logs/01-users-auth/20261101-171508--spec-revision-changelog.md`
+- 20261101-190310 — Change after completion (author request): `create-user --target local|staging|production` with the shared guard and env files — `logs/01-users-auth/20261101-190310--spec-revision-changelog.md`
 
 ## 02-basic-crud
 

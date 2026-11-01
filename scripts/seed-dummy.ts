@@ -11,11 +11,13 @@
  * PRODUCTION_DB_HOST and FROM_CLIENT_ID (Vercel Preview's value); it then asks you to
  * type "staging" unless --yes is given.
  */
-import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import pg from "pg";
 import { SHOW_COLUMNS, V1_CATEGORIES, flagsWith } from "@/lib/data/v1-categories";
+import { confirmTarget, exitWithError, UsageError } from "./lib/cli";
 import { checkTarget, envValue, GuardError, isProductionHost, loadTargetEnv, parseTarget } from "./lib/target-guard";
+
+export { UsageError };
 
 export type Value = string | number | boolean | null;
 export type Row = Record<string, Value>;
@@ -337,14 +339,6 @@ export async function seedDummy(c: pg.Client, dataset: Dataset): Promise<Record<
 
 // ---- CLI -------------------------------------------------------------------------------
 
-/** A bad argument or setting: printed as one line, without a stack trace. */
-export class UsageError extends Error {
-  constructor(message: string) {
-    super(`Error: ${message}`);
-    this.name = "UsageError";
-  }
-}
-
 type Args = { target: string | undefined; seed: number; yes: boolean };
 
 /** Strict: unknown options, positionals and missing values are errors; `--opt=value` works. */
@@ -374,17 +368,6 @@ function positiveInt(name: string, value: string): number {
   return n;
 }
 
-async function confirmStaging(yes: boolean): Promise<void> {
-  if (yes) return;
-  if (!process.stdin.isTTY) {
-    throw new GuardError("--target staging needs a typed confirmation; run it in a terminal or pass --yes");
-  }
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await rl.question('This wipes staging\'s clients, products, orders and dockets. Type "staging" to continue: ');
-  rl.close();
-  if (answer.trim() !== "staging") throw new GuardError("confirmation did not match");
-}
-
 async function main(argv: readonly string[]): Promise<void> {
   const args = parseCliArgs(argv);
   const target = parseTarget(args.target);
@@ -400,7 +383,7 @@ async function main(argv: readonly string[]): Promise<void> {
     if (!fromEnv) throw new GuardError("FROM_CLIENT_ID must be set for --target staging (use Vercel Preview's value)");
     fromClientId = positiveInt("FROM_CLIENT_ID", fromEnv);
     console.log(`Target staging: ${host} (settings from ${envFile ?? "the shell environment"})`);
-    await confirmStaging(args.yes);
+    await confirmTarget(target, args.yes, "This wipes staging's clients, products, orders and dockets.");
   } else if (fromEnv) {
     fromClientId = positiveInt("FROM_CLIENT_ID", fromEnv);
   }
@@ -417,11 +400,5 @@ async function main(argv: readonly string[]): Promise<void> {
 }
 
 if (process.argv[1] && /seed-dummy\.ts$/.test(process.argv[1])) {
-  main(process.argv.slice(2)).then(
-    () => process.exit(0),
-    (err: unknown) => {
-      console.error(err instanceof GuardError || err instanceof UsageError ? err.message : err);
-      process.exit(1);
-    },
-  );
+  main(process.argv.slice(2)).then(() => process.exit(0), exitWithError);
 }

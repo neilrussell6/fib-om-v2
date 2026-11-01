@@ -10,10 +10,10 @@ Requires Node 24 (`.tool-versions`), Docker and [Atlas](https://atlasgo.io) (`cu
 
 ```sh
 cp .env.tpl .env                 # fill in the local values shown as examples, and AUTH_SECRET
-docker compose up -d             # Postgres 17 + Neon-compatible proxy
+docker compose up -d             # Postgres 17
 npm install
 npm run db:migrate               # apply db/migrations
-npm run create-user -- you@example.com   # prompts for a password (12+ characters)
+npm run create-user -- --target local you@example.com   # prompts for a password (12+ characters)
 npm run dev
 ```
 

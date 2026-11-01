@@ -24,10 +24,11 @@ FROM_CLIENT_ID=
 # SOURCE_MYSQL_URL=
 # SCRATCH_MYSQL_URL=
 
-# Each data-script --target reads its own gitignored file; variables set in the shell win:
+# Each operator-script --target (create-user, seed:dummy, seed-old) reads its own
+# gitignored file; variables set in the shell win:
 #   --target local      .env (this file)
 #   --target staging    .env.staging
-#   --target production .env.prod (seed-old only; seed-dummy refuses production)
+#   --target production .env.prod (create-user, seed-old; seed-dummy refuses production)
 # .env.staging / .env.prod hold:
 #   DATABASE_URL_UNPOOLED=   that branch's direct (non-pooler) connection string
 #   PRODUCTION_DB_HOST=      production's endpoint host (pooled or direct form)
