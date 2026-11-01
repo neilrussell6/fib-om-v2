@@ -16,7 +16,8 @@
     "db:validate": "scripts/db.sh validate",
     "db:new": "scripts/db.sh new",
     "db:hash": "scripts/db.sh hash",
-    "create-user": "tsx scripts/create-user.ts"
+    "create-user": "tsx scripts/create-user.ts",
+    "seed:dummy": "tsx scripts/seed-dummy.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
