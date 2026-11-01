@@ -86,6 +86,7 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 ## 03-seed-dummy
 
 - 20261101-125349 — Phase 1, step "spec": done (extracted from `05-data-scripts`) — `artifacts/specs/03-seed-dummy/spec.md`
+- 20261101-125349 — Phase 1, step "commit": done — commit `1f43c9b`
 
 ## 04-custom-behaviour
 
