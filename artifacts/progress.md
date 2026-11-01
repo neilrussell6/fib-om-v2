@@ -119,6 +119,7 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261101-175050 — Phase 4, step "commit review": done — commit `b7e848d`
 - 20261101-175050 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/03-seed-dummy/20261101-175050--book-changelog.md`
 - 20261101-175050 — Feature workflow complete (phases 1–4). Open: AC-11, an operator seeds staging (`--target staging` with staging's `DATABASE_URL_UNPOOLED`, `PRODUCTION_DB_HOST` and Vercel Preview's `FROM_CLIENT_ID`).
+- 20261101-181327 — Change after completion (author request): each `--target` reads its own env file (`.env`, `.env.staging`, `.env.prod`) — `logs/03-seed-dummy/20261101-181327--spec-revision-changelog.md`
 
 ## 04-custom-behaviour
 

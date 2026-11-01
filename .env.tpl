@@ -19,8 +19,16 @@ NOTCHER_API_KEY=
 # Fibatron's own client id, used as the "from" client on delivery dockets (spec 02).
 FROM_CLIENT_ID=
 
-# Operator-only variables for the data scripts (specs 03 and 05). Set them only on the
-# trusted machine, for the session; never in .env files that leave it.
+# Operator-only variables for the data scripts (specs 03 and 05). Only on the trusted
+# machine: in the shell for the session, or in the gitignored target files below.
 # SOURCE_MYSQL_URL=
 # SCRATCH_MYSQL_URL=
-# PRODUCTION_DB_HOST=
+
+# Each data-script --target reads its own gitignored file; variables set in the shell win:
+#   --target local      .env (this file)
+#   --target staging    .env.staging
+#   --target production .env.prod (seed-old only; seed-dummy refuses production)
+# .env.staging / .env.prod hold:
+#   DATABASE_URL_UNPOOLED=   that branch's direct (non-pooler) connection string
+#   PRODUCTION_DB_HOST=      production's endpoint host (pooled or direct form)
+#   FROM_CLIENT_ID=          Vercel's value for that environment (staging: Preview)

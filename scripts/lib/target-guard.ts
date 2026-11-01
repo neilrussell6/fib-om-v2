@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseEnv } from "node:util";
+
 /**
  * Safety guard for the data scripts (spec 03, reused by seed-old in spec 05).
  * Runs before any database connection is opened; every refusal is a GuardError whose
@@ -17,6 +21,28 @@ export class GuardError extends Error {
     super(`Refused: ${message}`);
     this.name = "GuardError";
   }
+}
+
+/** The env file each target reads; all are gitignored (`.env*`). */
+export const ENV_FILES: Record<Target, string> = { local: ".env", staging: ".env.staging", production: ".env.prod" };
+
+/**
+ * Loads the target's env file, if present, into env. Variables already set (even to "")
+ * win over the file, so a session or test can override it. Only that target's file is
+ * read, so local settings never mix into a staging or production run. Returns the file
+ * name when one was read.
+ */
+export function loadTargetEnv(target: Target, dir: string = process.cwd(), env: Env = process.env): string | undefined {
+  const file = ENV_FILES[target];
+  let text: string;
+  try {
+    text = readFileSync(join(dir, file), "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw err;
+  }
+  for (const [key, value] of Object.entries(parseEnv(text))) if (env[key] === undefined) env[key] = value;
+  return file;
 }
 
 /** An empty value counts as unset (a test or shell may pass VAR= to clear it). */

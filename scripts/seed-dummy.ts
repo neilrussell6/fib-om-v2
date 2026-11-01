@@ -5,16 +5,17 @@
  *   npm run seed:dummy -- --target local [--seed <n>]
  *   npm run seed:dummy -- --target staging [--seed <n>] [--yes]
  *
+ * Settings come from the target's env file (variables already set in the shell win):
  * --target local reads .env and only accepts a local database host.
- * --target staging uses the session environment alone: DATABASE_URL_UNPOOLED (the staging
- * branch), PRODUCTION_DB_HOST and FROM_CLIENT_ID (Vercel Preview's value), then asks you
- * to type "staging" unless --yes is given.
+ * --target staging reads .env.staging: DATABASE_URL_UNPOOLED (the staging branch),
+ * PRODUCTION_DB_HOST and FROM_CLIENT_ID (Vercel Preview's value); it then asks you to
+ * type "staging" unless --yes is given.
  */
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import pg from "pg";
 import { SHOW_COLUMNS, V1_CATEGORIES, flagsWith } from "@/lib/data/v1-categories";
-import { checkTarget, envValue, GuardError, isProductionHost, parseTarget } from "./lib/target-guard";
+import { checkTarget, envValue, GuardError, isProductionHost, loadTargetEnv, parseTarget } from "./lib/target-guard";
 
 export type Value = string | number | boolean | null;
 export type Row = Record<string, Value>;
@@ -388,14 +389,8 @@ async function main(argv: readonly string[]): Promise<void> {
   const args = parseCliArgs(argv);
   const target = parseTarget(args.target);
   if (target === "production") throw new GuardError("seed-dummy never runs against production");
-  if (target === "local") {
-    try {
-      process.loadEnvFile(".env");
-    } catch {
-      // No .env file: use the environment as is.
-    }
-  }
-  checkTarget(target);
+  const envFile = loadTargetEnv(target);
+  const host = checkTarget(target);
   if (isProductionHost()) throw new GuardError("DATABASE_URL_UNPOOLED points at the production database");
 
   const seed = args.seed;
@@ -404,6 +399,7 @@ async function main(argv: readonly string[]): Promise<void> {
   if (target === "staging") {
     if (!fromEnv) throw new GuardError("FROM_CLIENT_ID must be set for --target staging (use Vercel Preview's value)");
     fromClientId = positiveInt("FROM_CLIENT_ID", fromEnv);
+    console.log(`Target staging: ${host} (settings from ${envFile ?? "the shell environment"})`);
     await confirmStaging(args.yes);
   } else if (fromEnv) {
     fromClientId = positiveInt("FROM_CLIENT_ID", fromEnv);

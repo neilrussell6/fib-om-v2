@@ -31,7 +31,7 @@ For developers and operators:
   - `--seed` is an integer, default `1`. The same seed always produces the same data. Options also take the `--opt=value` form. An unknown option, a stray argument or a non-integer `--seed` is an error (revised 2026-11-01, review).
   - **`--target local`** only accepts a local database host (see Target guard). `FROM_CLIENT_ID` defaults to `1`, matching `.env.tpl` and CI.
   - **`--target staging`** requires `PRODUCTION_DB_HOST` and `FROM_CLIENT_ID` to be set explicitly; `FROM_CLIENT_ID` must be the value in Vercel's Preview environment, so the staging app's docket sender exists. It then asks the operator to type `staging` to confirm. A run with no terminal exits non-zero before connecting, unless `--yes` is given.
-  - With `--target local`, reads `.env` if present (like `create-user`), so locally it needs no extra setup. With `--target staging`, `.env` is not read: the operator sets the staging branch's `DATABASE_URL_UNPOOLED`, `PRODUCTION_DB_HOST` and `FROM_CLIENT_ID` for the session only (never in a committed file), so a stale local `.env` never mixes into a staging run. An empty `PRODUCTION_DB_HOST` or `FROM_CLIENT_ID` counts as unset.
+  - Each target reads its own gitignored env file, if present: `--target local` reads `.env` (like `create-user`), so locally it needs no extra setup; `--target staging` reads `.env.staging`, which holds the staging branch's `DATABASE_URL_UNPOOLED`, `PRODUCTION_DB_HOST` and `FROM_CLIENT_ID` (never a committed file). Only that target's file is read, so a stale local `.env` never mixes into a staging run. Variables already set in the shell win over the file. Before the staging prompt the script prints the database host and which file it read. An empty `PRODUCTION_DB_HOST` or `FROM_CLIENT_ID` counts as unset (revised 2026-11-01, author request).
   - Prints a summary: rows inserted per table, the seed, and the target.
   - Exits non-zero with a clear message on any refusal or error, and leaves the database unchanged. Refusals and argument errors are one line, with no stack trace; if the rollback itself fails, the original error is reported.
 - **Never from CI.** No workflow runs `seed-dummy`. On staging an operator runs it, after `deploy.yml` has migrated the schema.
@@ -86,7 +86,7 @@ Uses `pg` over `DATABASE_URL_UNPOOLED`, like the test helpers and migrations. No
 - **Determinism made explicit:** `--seed` with a default, and a fixed anchor date for every date column.
 - **Categories from v1.** The original asked for "every category attribute value"; the categories now use v1's real names and flags, plus two edge-case categories.
 - **Stricter guard:** local hosts only for `--target local`, `FROM_CLIENT_ID` required and a typed confirmation for `--target staging`.
-- **`.env` only for local** (decided 2026-11-01, task review): `--target staging` uses the session environment alone.
+- **One env file per target** (decided 2026-11-01 at task review as "`.env` only for local"; revised the same day at the author's request): `.env` for local, `.env.staging` for staging (`.env.prod` for production, used by `seed-old`). The loader, `loadTargetEnv`, lives in `scripts/lib/target-guard.ts`.
 
 ## Acceptance criteria
 
