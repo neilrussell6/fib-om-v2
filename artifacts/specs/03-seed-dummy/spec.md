@@ -2,6 +2,7 @@
 
 - Date: 20261101-125349
 - Revised: 20261101-133629 (spec review FAIL, author decisions D1–D11)
+- Revised: 20261101-133951 (re-review FAIL, author decision D12)
 - Feature: 03-seed-dummy
 - Phase: 1 (Spec)
 
@@ -54,6 +55,7 @@ Coverage, so every screen and every later feature has something to show:
 
 - **Reference data:** at least 30 clients. One category per entry in `lib/data/v1-categories.ts`, with v1's names and `show_*` flags, plus two dummy categories: "Dummy All Columns" (every flag on) and "Dummy No Columns" (every flag off). Product types with and without `millimetres_per_pleat`; product media with and without `pleat_spacing`. At least 60 products spread over every category, with `notcher` both true and false and `efficiency` both set and NULL.
 - **Sender client:** a client with id `FROM_CLIENT_ID` is always present, named "Fibatron (dummy)", so docket creation (spec 02) works.
+- **Client ids:** `buildDataset` assigns every client id itself: the sender gets `FROM_CLIENT_ID`, and the dummy clients get the other ids from 1 upward, skipping it. Other tables take ids from their sequences.
 - **Orders:** at least 60, in every `order_status` (`new`, `complete`, `archived`), with due dates before and after the anchor date, with and without a delivery docket.
 - **Order items:** at least 300, spread over every category; every value of every enum column (`clip_type`, `clip_position`, `wire_mesh`, `wire_sides`, `media_mats`, `gasket`) and NULL for each nullable column; both values of every boolean column, including all seven stage statuses; zero and non-zero dimensions; non-ASCII text and `/` in at least one `comment` and `part_number`.
 - **Delivery dockets:** at least 20, in both `docket_status` values, sent from the sender client; some with several orders, some with none.
@@ -65,7 +67,7 @@ One transaction; any error rolls back the whole run:
 1. One `TRUNCATE … CONTINUE IDENTITY` of every app table except `users`, `login_attempts` and the Atlas revisions table. They must go in a single statement, because Postgres refuses to truncate a table that another table not in the statement references.
 2. `ALTER SEQUENCE … RESTART` for the reference tables' and `delivery_dockets`' identity sequences only.
 3. **`orders` and `order_items` keep their sequences**, and their rows take ids from them. Once `seed-old` has set those sequences above the legacy maximum (spec 05), `seed-dummy` never lowers them, so new ids never reuse ids the notcher software has already seen.
-4. Insert the dataset in FK order: reference tables → delivery dockets → orders → order items. The sender client is inserted with `OVERRIDING SYSTEM VALUE`, and the `clients` sequence is then set above the highest client id.
+4. Insert the dataset in FK order: reference tables → delivery dockets → orders → order items. Every client is inserted with its assigned id using `OVERRIDING SYSTEM VALUE`, and the `clients` sequence is then set above the highest client id.
 
 Uses `pg` over `DATABASE_URL_UNPOOLED`, like the test helpers and migrations. No app code paths (Server Actions) are used.
 
@@ -92,7 +94,7 @@ Automated. The integration tests that run `seed-dummy` use a **throwaway databas
 1. **AC-1** `seedDummy` with `buildDataset(1, 1)` fills every app table except `users` and `login_attempts`, covering everything listed under Dataset: every order status, docket status, enum value and NULL in each nullable column, both values of every boolean column, every v1 category with v1's flags plus the two dummy categories, the sender client with id `1`, and the notcher-feed conditions both met and not met; clients, products, orders and order items each have more than 25 rows.
 2. **AC-2** Running it twice with the same seed produces identical data: compared table by table and ordered by id, every row matches, ignoring the `orders` and `order_items` ids (and the order and item references to them), which come from sequences that aren't reset. A different seed produces different data. `buildDataset` called twice with the same arguments returns equal values.
 3. **AC-3** Any clients, products, orders, order items and dockets that existed beforehand are gone afterwards; existing `users` and `login_attempts` rows are unchanged.
-4. **AC-4** If the `orders` and `order_items` sequences were set to start at 100000 before the run, every inserted order and order-item id is at least 100000 and the sequences are not lowered; the reference tables' and `delivery_dockets`' ids start again at 1 (the sender client keeps `FROM_CLIENT_ID`).
+4. **AC-4** If the `orders` and `order_items` sequences were set to start at 100000 before the run, every inserted order and order-item id is at least 100000 and the sequences are not lowered; the reference tables' and `delivery_dockets`' ids start again at 1. With `FROM_CLIENT_ID` set to `20` (inside the range the dummy clients use), the run succeeds, the sender has id 20, no two clients share an id, and the next `clients` id is above the highest.
 5. **AC-5** `seedDummy` given a dataset with one invalid row (an order item whose `product_id` doesn't exist) fails, and the database is exactly as it was before the run.
 6. **AC-6** Run as a CLI with `DATABASE_URL_UNPOOLED` set to an unreachable host (`postgres://x@127.0.0.1:1/none`), each of these exits non-zero with the guard's message on stderr and no connection error (proving it refused before connecting): `--target production`; no `--target`; `--target prod`; `--target local` with a non-local host; `--target staging` with `PRODUCTION_DB_HOST` unset; `--target staging` with `FROM_CLIENT_ID` unset; `--target staging` with no terminal and no `--yes`.
 7. **AC-7** With `DATABASE_URL_UNPOOLED`'s host equal to `PRODUCTION_DB_HOST`, `--target staging --yes` exits non-zero with the guard's message and no connection error. `--target local` with `localhost`, `127.0.0.1` and `db.localtest.me` hosts passes the guard.
