@@ -21,14 +21,14 @@ import { ReferenceCombobox } from "./reference-combobox";
 type Values = Record<string, unknown>;
 
 const selectClass =
-  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive";
+  "h-[38px] w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive";
 
 function errorText(errors: FieldErrors<Values>, name: string): string | undefined {
   const e = errors[name];
   return e && typeof e.message === "string" ? e.message : undefined;
 }
 
-function FieldControl({
+export function FieldControl({
   field,
   control,
   errors,

@@ -64,10 +64,11 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
   users: {
     key: "users", path: "/users", singular: "User", plural: "Users",
     fields: [
+      text("name", "Name"),
       { name: "email", label: "Email", type: "email", required: true },
       { name: "password", label: "Password", type: "password", detail: false },
     ],
-    list: { columns: [{ key: "email", label: "Email" }], defaultSort: { key: "email", dir: "asc" }, filters: [textFilter("email", "Email")] },
+    list: { columns: [{ key: "name", label: "Name" }, { key: "email", label: "Email" }], defaultSort: { key: "email", dir: "asc" }, filters: [textFilter("email", "Email")] },
   },
 
   clients: {
@@ -213,7 +214,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
   },
 
   order_items: {
-    key: "order_items", path: "/order-items", singular: "Order Item", plural: "Order Items",
+    key: "order_items", path: "/order-items", singular: "Order Item", plural: "Order Items", newLabel: "New item",
     fields: [
       { name: "order_id", label: "Order", type: "reference", ref: "orders", required: true, display: "order_number" },
       { name: "product_id", label: "Product", type: "reference", ref: "products", required: true, display: "product_name" },
@@ -246,18 +247,21 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
       ...STAGES.map(([name, label]) => bool(name, label, { group: "Stages" })),
     ],
     list: {
+      // Spec 06: the design's columns; status is the order's, shown as tabs above the list.
       columns: [
-        { key: "client_name", label: "Client" },
-        { key: "order_number", label: "Order Number" },
-        { key: "order_date", label: "Created", format: "date" },
+        { key: "client_name", label: "Client", link: { path: "/clients", idKey: "client_id" } },
+        { key: "order_number", label: "Order" },
+        { key: "product_name", label: "Product" },
+        { key: "product_size_name", label: "Size" },
+        { key: "quantity", label: "Qty", align: "right" },
         { key: "order_due_date", label: "Due", format: "date" },
         { key: "order_status", label: "Status", format: "enum", options: ORDER_STATUS },
       ],
       defaultSort: { key: "order_due_date", dir: "desc" },
+      statusTabs: true,
       filters: [
         { key: "client", label: "Client", kind: "reference", ref: "clients", alwaysShown: true },
-        { key: "order", label: "Order", kind: "reference", ref: "orders" },
-        { key: "order_status", label: "Order Status", kind: "select", options: ORDER_STATUS, alwaysShown: true },
+        { key: "order", label: "Order", kind: "reference", ref: "orders", alwaysShown: true },
         ...range("due", "Due", "date"),
         ...range("created", "Created", "date"),
         textFilter("type_code", "Type Code", false),
@@ -278,3 +282,9 @@ export function getResource(key: string): ResourceUi {
 
 /** Fields shown on the create/edit form. */
 export const formFields = (r: ResourceUi) => r.fields.filter((f) => f.form !== false);
+
+/** List heading: the resource's title, or its plural in sentence case (spec 06). */
+export const resourceTitle = (r: ResourceUi) => r.title ?? r.plural.charAt(0) + r.plural.slice(1).toLowerCase();
+
+/** The list's create button label (spec 06). */
+export const resourceNewLabel = (r: ResourceUi) => r.newLabel ?? `New ${r.singular.toLowerCase()}`;

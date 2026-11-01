@@ -1,42 +1,67 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import type { NavItem } from "./nav-items";
+import type { NavGroup } from "./nav-items";
 
-function isActive(href: string, activeHref: string): boolean {
+function isActive(href: string, activeHref: string | undefined): boolean {
+  if (activeHref === undefined) return false;
   return href === "/" ? activeHref === "/" : activeHref === href || activeHref.startsWith(`${href}/`);
 }
 
+/**
+ * The grouped navigation (spec 06). Labels and group headings carry the
+ * `sidebar-label` class, which the collapsed sidebar hides (see globals.css);
+ * each link keeps its name through `aria-label` and a `title` tooltip.
+ */
 export function SidebarNav({
-  items,
+  groups,
   activeHref,
   onNavigate,
+  collapsed,
 }: {
-  items: NavItem[];
-  activeHref: string;
+  groups: NavGroup[];
+  activeHref?: string;
   onNavigate?: () => void;
+  /** Forces the icon-only layout (otherwise the sidebar's data-state / media query decides). */
+  collapsed?: boolean;
 }) {
   return (
-    <ul className="flex flex-col gap-1">
-      {items.map(({ label, href, icon: Icon }) => {
-        const active = isActive(href, activeHref);
-        return (
-          <li key={href}>
-            <Link
-              href={href}
-              onClick={onNavigate}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground outline-none",
-                "hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-                active && "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary",
-              )}
-            >
-              <Icon data-testid="nav-icon" aria-hidden="true" className="size-4 shrink-0" />
-              {label}
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="flex flex-col gap-[18px]">
+      {groups.map((g) => (
+        <div key={g.label} className="flex flex-col gap-0.5">
+          <div
+            className={cn(
+              "sidebar-label px-2.5 pb-1.5 text-[11px] tracking-[0.08em] whitespace-nowrap text-subtle-foreground uppercase",
+              collapsed && "hidden",
+            )}
+          >
+            {g.label}
+          </div>
+          <ul className="flex flex-col gap-0.5">
+            {g.items.map(({ label, href, icon: Icon }) => {
+              const active = isActive(href, activeHref);
+              return (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    onClick={onNavigate}
+                    aria-label={label}
+                    title={label}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex h-[34px] items-center gap-2.5 rounded-md px-2.5 text-sm whitespace-nowrap text-label no-underline outline-none",
+                      "hover:bg-accent hover:no-underline focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                      active && "bg-primary font-medium text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                    )}
+                  >
+                    <Icon data-testid="nav-icon" aria-hidden="true" className="size-[17px] shrink-0" />
+                    <span className={cn("sidebar-label", collapsed && "hidden")}>{label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }

@@ -15,30 +15,60 @@ const headers = (page: import("@playwright/test").Page) =>
   page.getByRole("columnheader").evaluateAll((els) => els.map((e) => e.textContent?.trim()).filter((t) => t && t !== "Actions"));
 
 // AC-6: each list's default columns and sort with no URL params.
+// Spec 06 AC-8: sentence-case titles and "New …" buttons; AC-12: the order-items columns.
 const LISTS = [
-  ["/users", "Users", ["Email"], "Email"],
-  ["/clients", "Clients", ["Name", "Full Name", "Phone", "Shipping Address"], "Name"],
-  ["/products", "Products", ["Category", "Type Name", "Type Code", "Name", "Size", "Media"], "Category"],
-  ["/product-categories", "Product Categories", ["Name"], "Name"],
-  ["/product-types", "Product Types", ["Name", "Code", "MM per Pleat"], "Code"],
-  ["/product-sizes", "Product Sizes", ["Name"], "Name"],
-  ["/product-media", "Product Media", ["Name", "Code", "Pleat Spacing"], "Code"],
-  ["/orders", "Orders", ["Client", "Order Number", "Delivery Docket", "Created", "Due", "Status"], "Created"],
-  ["/order-items", "Order Items", ["Client", "Order Number", "Created", "Due", "Status"], "Due"],
-  ["/delivery-dockets", "Delivery Dockets", ["To Client", "Docket Number", "Date", "Status"], "Date"],
+  ["/users", "Users", ["Name", "Email"], "Email", "New user"],
+  ["/clients", "Clients", ["Name", "Full Name", "Phone", "Shipping Address"], "Name", "New client"],
+  ["/products", "Products", ["Category", "Type Name", "Type Code", "Name", "Size", "Media"], "Category", "New product"],
+  ["/product-categories", "Product categories", ["Name"], "Name", "New product category"],
+  ["/product-types", "Product types", ["Name", "Code", "MM per Pleat"], "Code", "New product type"],
+  ["/product-sizes", "Product sizes", ["Name"], "Name", "New product size"],
+  ["/product-media", "Product media", ["Name", "Code", "Pleat Spacing"], "Code", "New product media"],
+  ["/orders", "Orders", ["Client", "Order Number", "Delivery Docket", "Created", "Due", "Status"], "Created", "New order"],
+  ["/order-items", "Order items", ["Client", "Order", "Product", "Size", "Qty", "Due", "Status"], "Due", "New item"],
+  ["/delivery-dockets", "Delivery dockets", ["To Client", "Docket Number", "Date", "Status"], "Date", "New delivery docket"],
 ] as const;
 
-for (const [path, plural, columns, sortedBy] of LISTS) {
-  test(`AC-6 ${plural}: heading, columns, default sort, Create button, no bulk selection`, async ({ page }) => {
+for (const [path, title, columns, sortedBy, newLabel] of LISTS) {
+  test(`AC-6 / 06 AC-8 ${title}: heading, columns, default sort, New button, no bulk selection`, async ({ page }) => {
     await page.goto(path);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(plural);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
     expect(await headers(page)).toEqual(columns);
     const sorted = page.getByRole("columnheader", { name: sortedBy, exact: true });
     await expect(sorted).toHaveAttribute("aria-sort", /ascending|descending/);
-    await expect(page.getByRole("link", { name: "Create", exact: true })).toBeVisible();
+    const create = page.getByRole("link", { name: newLabel, exact: true });
+    await expect(create).toBeVisible();
+    await expect(create).toHaveAttribute("href", `${path}/new`);
     await expect(page.getByRole("checkbox")).toHaveCount(0);
   });
 }
+
+test("06 AC-11 sticky header, a single sort arrow, and the Showing footer", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 500 });
+  await page.goto(`/product-sizes?name=${encodeURIComponent(`${fx.tag} sz`)}`);
+  const header = page.getByRole("columnheader", { name: "Name", exact: true });
+  expect(await header.evaluate((el) => getComputedStyle(el).position)).toBe("sticky");
+  await expect(page.getByRole("columnheader").locator("svg")).toHaveCount(1);
+  await expect(page.getByText("Showing 1–25 of 30", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Previous page" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Next page" })).toBeEnabled();
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(page.getByText("Showing 26–30 of 30", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next page" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Previous page" })).toBeEnabled();
+});
+
+test("06 AC-9 filter controls show their label inside the control", async ({ page }) => {
+  await page.goto("/product-types");
+  const filters = page.getByRole("region", { name: "Filters" });
+  const input = filters.getByLabel("Name", { exact: true });
+  const label = filters.locator("label", { hasText: /^Name$/ });
+  const [ib, lb] = await Promise.all([input.boundingBox(), label.boundingBox()]);
+  // The label sits inside the control's box, on the same row as the input.
+  expect(lb!.y).toBeGreaterThanOrEqual(ib!.y - 12);
+  expect(lb!.y + lb!.height).toBeLessThanOrEqual(ib!.y + ib!.height + 12);
+  expect(lb!.x).toBeLessThan(ib!.x);
+});
 
 test("AC-7 clicking a header sorts by it and a second click toggles direction", async ({ page }) => {
   await page.goto(`/product-sizes?name=${encodeURIComponent(`${fx.tag} sz`)}`);
@@ -57,7 +87,7 @@ test("AC-8 page size defaults to 25, accepts 10/25/50/100, falls back for others
   await page.goto(`/product-sizes?name=${encodeURIComponent(`${fx.tag} sz`)}`);
   const rows = page.getByRole("row");
   await expect(rows).toHaveCount(26); // header + 25
-  await expect(page.getByText("Total: 30", { exact: true })).toBeVisible();
+  await expect(page.getByText("Showing 1–25 of 30", { exact: true })).toBeVisible();
   const size = page.getByLabel("Rows per page");
   await expect(size).toHaveValue("25");
   expect(await size.locator("option").allTextContents()).toEqual(["10", "25", "50", "100"]);
@@ -125,22 +155,22 @@ test("AC-6 rows open the detail page and each row has an Edit action", async ({ 
 test("Review 02 finding 1: invalid filter values in the URL don't break the list", async ({ page }) => {
   for (const [path, heading] of [
     ["/orders?created_from=abc&client=abc", "Orders"],
-    ["/order-items?height_from=x", "Order Items"],
-    ["/delivery-dockets?status=nope", "Delivery Dockets"],
+    ["/order-items?height_from=x&status=nope", "Order items"],
+    ["/delivery-dockets?status=nope", "Delivery dockets"],
   ]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 }), path).toHaveText(heading);
-    await expect(page.getByText(/^Total: \d+$/), path).toBeVisible();
+    await expect(page.getByText(/^(Showing \d+–\d+ of \d+|No results)$/), path).toBeVisible();
   }
 });
 
 test("Review 02 finding 2: no duplicate ids after client-side navigation between forms", async ({ page }) => {
   await page.goto("/product-sizes/new");
   await page.getByRole("link", { name: "Back", exact: true }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Product Sizes");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Product sizes");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Product Types" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Product Types");
-  await page.getByRole("link", { name: "Create", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Product types");
+  await page.getByRole("link", { name: "New product type", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Create a Product Type");
   const duplicates = await page.evaluate(() => {
     const seen = new Map<string, number>();

@@ -4,47 +4,68 @@ import { afterEach, describe, expect, it } from "vitest";
 
 afterEach(cleanup);
 
-const FINAL_ORDER = [
-  "Dashboard",
-  "Orders",
-  "Order Items",
-  "Delivery Dockets",
-  "Clients",
-  "Product Categories",
-  "Product Media",
-  "Products",
-  "Product Sizes",
-  "Product Types",
-  "Users",
-];
+// Spec 06 AC-3: the design's grouped sidebar.
+const GROUPS = [
+  ["Operations", ["Dashboard", "Orders", "Order Items", "Delivery Dockets"]],
+  ["Catalogue", ["Products", "Product Categories", "Product Types", "Product Sizes", "Product Media"]],
+  ["Admin", ["Clients", "Users"]],
+] as const;
 
-// AC-9: the sidebar order is fixed, and only Dashboard is enabled in this feature.
-describe("AC-9 sidebar", () => {
-  it("defines every entry in the final order, each with an icon and a path", async () => {
-    const { ALL_NAV_ITEMS } = await import("@/components/app-shell/nav-items");
-    expect(ALL_NAV_ITEMS.map((i) => i.label)).toEqual(FINAL_ORDER);
-    for (const item of ALL_NAV_ITEMS) {
+const ICONS: Record<string, string> = {
+  Dashboard: "LayoutGrid",
+  Orders: "ShoppingCart",
+  "Order Items": "ListOrdered",
+  "Delivery Dockets": "Truck",
+  Products: "Package",
+  "Product Categories": "ListTree",
+  "Product Types": "Tags",
+  "Product Sizes": "Ruler",
+  "Product Media": "Layers",
+  Clients: "Building2",
+  Users: "Users",
+};
+
+describe("06 AC-3 navigation groups", () => {
+  it("defines the three groups with the design's items in order", async () => {
+    const { NAV_GROUPS } = await import("@/components/app-shell/nav-items");
+    expect(NAV_GROUPS.map((g) => [g.label, g.items.map((i) => i.label)])).toEqual(GROUPS.map(([l, i]) => [l, [...i]]));
+  });
+
+  it("uses the design's Lucide icon for each item", async () => {
+    const { NAV_GROUPS } = await import("@/components/app-shell/nav-items");
+    const lucide = await import("lucide-react");
+    for (const item of NAV_GROUPS.flatMap((g) => g.items)) {
+      expect(item.icon, item.label).toBe((lucide as Record<string, unknown>)[ICONS[item.label]]);
       expect(item.href).toMatch(/^\//);
-      expect(item.icon).toBeTruthy();
     }
   });
 
-  // Spec 01 enabled only Dashboard; spec 02 enables every entry (each feature adds its own).
-  it("enables every entry once all screens exist (spec 02)", async () => {
-    const { NAV_ITEMS } = await import("@/components/app-shell/nav-items");
-    expect(NAV_ITEMS.map((i) => i.label)).toEqual(FINAL_ORDER);
+  it("NAV_ITEMS is the flattened group list", async () => {
+    const { NAV_GROUPS, NAV_ITEMS } = await import("@/components/app-shell/nav-items");
+    expect(NAV_ITEMS).toEqual(NAV_GROUPS.flatMap((g) => g.items));
     expect(NAV_ITEMS[0].href).toBe("/");
   });
 
-  it("renders entries in the given order with an icon and marks the active one", async () => {
-    const { ALL_NAV_ITEMS } = await import("@/components/app-shell/nav-items");
+  it("renders group headings and items, marking the active one", async () => {
+    const { NAV_GROUPS } = await import("@/components/app-shell/nav-items");
     const { SidebarNav } = await import("@/components/app-shell/sidebar-nav");
-    render(<SidebarNav items={ALL_NAV_ITEMS} activeHref="/" />);
+    render(<SidebarNav groups={NAV_GROUPS} activeHref="/order-items/12" />);
+    for (const [label] of GROUPS) expect(screen.getByText(label)).toBeTruthy();
     const links = screen.getAllByRole("link");
-    expect(links.map((l) => l.textContent?.trim())).toEqual(FINAL_ORDER);
-    const dashboard = screen.getByRole("link", { name: "Dashboard" });
-    expect(dashboard.getAttribute("aria-current")).toBe("page");
-    expect(within(dashboard).getByTestId("nav-icon")).toBeTruthy();
+    expect(links.map((l) => l.textContent?.trim())).toEqual(GROUPS.flatMap(([, items]) => [...items]));
+    const active = screen.getByRole("link", { name: "Order Items" });
+    expect(active.getAttribute("aria-current")).toBe("page");
+    expect(within(active).getByTestId("nav-icon")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Orders" }).getAttribute("aria-current")).toBeNull();
+  });
+
+  it("keeps an accessible name and tooltip on each link when collapsed", async () => {
+    const { NAV_GROUPS } = await import("@/components/app-shell/nav-items");
+    const { SidebarNav } = await import("@/components/app-shell/sidebar-nav");
+    render(<SidebarNav groups={NAV_GROUPS} activeHref="/" collapsed />);
+    for (const item of NAV_GROUPS.flatMap((g) => g.items)) {
+      const link = screen.getByRole("link", { name: item.label });
+      expect(link.getAttribute("title")).toBe(item.label);
+    }
   });
 });

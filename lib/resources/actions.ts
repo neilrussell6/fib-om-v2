@@ -40,6 +40,8 @@ async function applyRules(
   if (key === "users") {
     // The password is never stored or returned; only its bcrypt hash is written.
     const { password, ...rest } = values;
+    // Spec 06: the optional name is trimmed, and a blank name is stored as NULL.
+    if ("name" in rest) rest.name = typeof rest.name === "string" && rest.name.trim() ? rest.name.trim() : null;
     return typeof password === "string" ? { ...rest, password_hash: await bcrypt.hash(password, BCRYPT_COST) } : rest;
   }
 

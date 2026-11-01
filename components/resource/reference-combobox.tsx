@@ -31,6 +31,7 @@ export function ReferenceCombobox({
   allowClear,
   invalid,
   describedBy,
+  bare,
 }: {
   id: string;
   resource: ResourceKey;
@@ -41,6 +42,8 @@ export function ReferenceCombobox({
   allowClear?: boolean;
   invalid?: boolean;
   describedBy?: string;
+  /** Borderless trigger, for use inside an inline-label filter control (spec 06). */
+  bare?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -93,12 +96,14 @@ export function ReferenceCombobox({
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
         className={cn(
-          "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left text-sm outline-none",
-          "focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive",
+          "flex w-full items-center justify-between gap-2 text-left text-sm outline-none",
+          bare
+            ? "h-full min-w-0 bg-transparent px-0 focus-visible:underline"
+            : "h-[38px] rounded-md border border-input bg-background px-3 focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive",
         )}
       >
-        <span className={cn("truncate", !selected && "text-muted-foreground")}>{selected?.label ?? "Select…"}</span>
-        <ChevronsUpDownIcon aria-hidden="true" className="size-4 shrink-0 opacity-60" />
+        <span className={cn("truncate", !selected && "text-subtle-foreground")}>{selected?.label ?? "Select…"}</span>
+        <ChevronsUpDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-icon-muted" />
       </PopoverTrigger>
       <PopoverContent className="w-(--anchor-width) min-w-64 p-0" align="start">
         <Command shouldFilter={false}>

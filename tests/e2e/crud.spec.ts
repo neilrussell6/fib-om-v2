@@ -23,6 +23,8 @@ type Case = {
   createGoesToDetail?: boolean;
   /** Text that identifies the row in the list when the identifying field isn't a list column. */
   rowText?: () => string;
+  /** Spec 06: a row click opens the edit panel, not the detail page. */
+  panel?: boolean;
 };
 
 const cases: Case[] = [
@@ -111,7 +113,7 @@ const cases: Case[] = [
     find: (t) => `order_number=${t}`,
   },
   {
-    key: "order_items", path: "/order-items", singular: "Order Item",
+    key: "order_items", path: "/order-items", singular: "Order Item", panel: true,
     // The list (spec 02) shows client, order number, dates and status, not the part number.
     rowText: () => fx.names.orderNumber,
     create: async (p, t) => {
@@ -149,6 +151,13 @@ for (const c of cases) {
 
     // Detail (row click on the record's own cell; some first cells are links to other records)
     await row.getByRole("cell", { name: listText, exact: true }).click();
+    if (c.panel) {
+      // Spec 06 AC-16: the row opens the edit panel; the detail page is still reachable by URL.
+      await expect(page).toHaveURL(/[?&]item=\d+/);
+      await expect(page.getByRole("region", { name: "Edit order item" })).toBeVisible();
+      const id = new URL(page.url()).searchParams.get("item");
+      await page.goto(`${c.path}/${id}`);
+    }
     await expect(page).toHaveURL(new RegExp(`${c.path}/\\d+$`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(c.singular);
     await expect(page.getByRole("main")).toContainText(created);
@@ -164,7 +173,11 @@ for (const c of cases) {
     await expect(editedRow).toBeVisible();
 
     // Delete
-    await editedRow.getByRole("link", { name: "Edit", exact: true }).click();
+    if (c.panel) {
+      await editedRow.getByRole("cell", { name: c.rowText!(), exact: true }).click();
+      await expect(page).toHaveURL(/[?&]item=\d+/);
+      await page.goto(`${c.path}/${new URL(page.url()).searchParams.get("item")}/edit`);
+    } else await editedRow.getByRole("link", { name: "Edit", exact: true }).click();
     await confirmDelete(page);
     await expectToast(page, `${c.singular} successfully deleted`);
     await expect(page).toHaveURL(new RegExp(`${c.path}(\\?.*)?$`));

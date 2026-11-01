@@ -6,12 +6,15 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import type { FilterDef } from "@/lib/resources/types";
 import { NumberInput } from "./number-input";
 import { ReferenceCombobox } from "./reference-combobox";
 
 const TEXT_DEBOUNCE_MS = 300;
+
+/** A control drawn inside the inline-label box: no border, background or ring of its own. */
+const BARE = "h-full min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0 dark:bg-transparent";
 
 /** A text-like filter keeps local state and writes to the URL after a short pause. */
 function DebouncedInput({ id, filter, value, onCommit }: { id: string; filter: FilterDef; value: string; onCommit: (v: string) => void }) {
@@ -27,7 +30,7 @@ function DebouncedInput({ id, filter, value, onCommit }: { id: string; filter: F
     const t = setTimeout(() => onCommit(draft), TEXT_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [draft, value, onCommit]);
-  const props = { id, value: draft, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value) };
+  const props = { id, value: draft, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value), className: BARE };
   if (filter.kind === "number") return <NumberInput {...props} />;
   return <Input {...props} type={filter.kind === "date" ? "date" : "text"} />;
 }
@@ -54,22 +57,31 @@ export function FilterBar({ filters }: { filters: FilterDef[] }) {
   const set = (key: string, value: string) => setValues({ [key]: value || null, page: null });
 
   return (
-    <section aria-label="Filters" className="mb-4 flex flex-wrap items-end gap-3 print:hidden">
+    <section aria-label="Filters" className="flex flex-wrap items-center gap-2 py-3.5 print:hidden">
       {visible.map((f) => {
         const value = (values[f.key] as string | null) ?? "";
+        const id = `${idPrefix}-filter-${f.key}`;
         return (
-          <div key={f.key} className="flex flex-col gap-1">
-            <Label htmlFor={`${idPrefix}-filter-${f.key}`}>{f.label}</Label>
-            <div className="flex items-center gap-1">
-              <div className="w-48">
+          // Spec 06: the label sits inside the control, e.g. "Client  Select… ⇅".
+          <div
+            key={f.key}
+            className={cn(
+              "flex h-[34px] items-center gap-1.5 rounded-md border border-input bg-background pr-1 pl-3 text-sm focus-within:border-ring",
+              f.kind === "reference" ? "w-60" : f.kind === "date" ? "w-56" : "w-52",
+            )}
+          >
+            <label htmlFor={id} className="shrink-0 whitespace-nowrap text-muted-foreground">
+              {f.label}
+            </label>
+            <div className="flex h-full min-w-0 flex-1 items-center pr-2">
                 {f.kind === "reference" ? (
-                  <ReferenceCombobox id={`${idPrefix}-filter-${f.key}`} resource={f.ref!} value={value} onChange={(v) => set(f.key, v)} />
+                  <ReferenceCombobox id={id} resource={f.ref!} value={value} onChange={(v) => set(f.key, v)} bare />
                 ) : f.kind === "select" ? (
                   <select
-                    id={`${idPrefix}-filter-${f.key}`}
+                    id={id}
                     value={value}
                     onChange={(e) => set(f.key, e.target.value)}
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    className="h-full w-full min-w-0 bg-transparent text-sm outline-none"
                   >
                     <option value="">All</option>
                     {f.options?.map((o) => (
@@ -79,22 +91,28 @@ export function FilterBar({ filters }: { filters: FilterDef[] }) {
                     ))}
                   </select>
                 ) : (
-                  <DebouncedInput id={`${idPrefix}-filter-${f.key}`} filter={f} value={value} onCommit={(v) => set(f.key, v)} />
+                  <DebouncedInput id={id} filter={f} value={value} onCommit={(v) => set(f.key, v)} />
                 )}
-              </div>
-              {value ? (
-                <Button type="button" variant="ghost" size="icon" aria-label={`Clear ${f.label} filter`} onClick={() => set(f.key, "")}>
-                  <XIcon aria-hidden="true" />
-                </Button>
-              ) : null}
             </div>
+            {value ? (
+              <Button type="button" variant="ghost" size="icon-xs" aria-label={`Clear ${f.label} filter`} onClick={() => set(f.key, "")}>
+                <XIcon aria-hidden="true" />
+              </Button>
+            ) : null}
           </div>
         );
       })}
       {hidden.length ? (
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button type="button" variant="outline" />}>
-            <PlusIcon aria-hidden="true" />
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                className="flex h-[34px] items-center gap-1.5 rounded-md border border-dashed border-dash px-3 text-sm text-muted-foreground outline-none hover:bg-row-hover focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            }
+          >
+            <PlusIcon aria-hidden="true" className="size-3.5" />
             Add filter
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
@@ -109,7 +127,8 @@ export function FilterBar({ filters }: { filters: FilterDef[] }) {
       {active.length ? (
         <Button
           type="button"
-          variant="ghost"
+          variant="link"
+          className="h-[34px] px-2 text-sm"
           onClick={() => {
             setAdded([]);
             setValues(Object.fromEntries([...filters.map((f) => [f.key, null]), ["page", null]]));

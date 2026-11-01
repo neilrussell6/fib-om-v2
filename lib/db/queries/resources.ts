@@ -1,4 +1,5 @@
 import type { ResourceKey } from "@/lib/resources/types";
+import { APP_TIME_ZONE } from "@/lib/time";
 
 /**
  * Server-side, allowlisted SQL for every resource (overview O5). Every
@@ -40,9 +41,9 @@ export const QUERIES: Record<ResourceKey, QueryConfig> = {
   users: {
     table: "users",
     source: "users",
-    select: "id, email, created_at",
-    writable: ["email", "password_hash"],
-    sorts: { email: "email" },
+    select: "id, name, email, created_at",
+    writable: ["name", "email", "password_hash"],
+    sorts: { name: "name", email: "email" },
     filters: { email: contains("email") },
     options: { source: "users", label: "email", orderBy: "email" },
   },
@@ -157,7 +158,8 @@ export const QUERIES: Record<ResourceKey, QueryConfig> = {
   order_items: {
     table: "order_items",
     source: "order_items_v",
-    select: "*",
+    // Spec 06: days until the order is due, against today in the app's time zone (negative = overdue).
+    select: `*, order_due_date - (now() AT TIME ZONE '${APP_TIME_ZONE}')::date AS due_in_days`,
     writable: [
       "order_id", "product_id", "part_number", "quantity", "height", "width", "depth", "comment", "has_wire_header",
       "has_header_frame", "type", "number", "clip_type", "clip_position", "has_gasket", "pockets", "has_legs", "wire_mesh",
@@ -166,12 +168,12 @@ export const QUERIES: Record<ResourceKey, QueryConfig> = {
     ],
     sorts: {
       client_name: "client_name", order_number: "order_number", order_date: "order_date",
-      order_due_date: "order_due_date", order_status: "order_status",
+      order_due_date: "order_due_date", order_status: "order_status", product_name: "product_name",
+      product_size_name: "product_size_name", quantity: "quantity",
     },
     filters: {
       client: eq("client_id", "bigint"),
       order: eq("order_id", "bigint"),
-      order_status: eq("order_status", "order_status"),
       ...between("due", "order_due_date", "date"),
       ...between("created", "order_date", "date"),
       type_code: contains("product_type_code"),

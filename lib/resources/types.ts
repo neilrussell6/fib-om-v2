@@ -58,6 +58,8 @@ export type ColumnDef = {
   options?: Option[];
   /** Renders the cell as a link to another resource's detail page. */
   link?: { path: string; idKey: string };
+  /** Right-aligned with tabular figures (quantities). */
+  align?: "right";
 };
 
 export type FilterKind = "text" | "reference" | "select" | "date" | "number";
@@ -77,6 +79,10 @@ export type ResourceUi = {
   path: string;
   singular: string;
   plural: string;
+  /** List page heading (sentence case); defaults to `plural` with only its first letter capitalised (spec 06). */
+  title?: string;
+  /** The list's create button; defaults to `New <singular in lower case>` (spec 06). */
+  newLabel?: string;
   fields: FieldDef[];
   /** Heading shown above the grouped fields on the form (product categories). */
   formHeading?: string;
@@ -86,5 +92,7 @@ export type ResourceUi = {
     columns: ColumnDef[];
     defaultSort: { key: string; dir: "asc" | "desc" };
     filters: FilterDef[];
+    /** Order-status tabs with counts above the list (order items only, spec 06). */
+    statusTabs?: boolean;
   };
 };

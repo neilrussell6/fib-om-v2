@@ -2,6 +2,8 @@
 
 export type UserRow = {
   id: number;
+  /** Optional display name (spec 06). */
+  name?: string | null;
   email: string;
   password_hash: string;
   /** Incremented on sign-out (and password change); sessions carrying an older value are rejected. */

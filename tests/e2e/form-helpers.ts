@@ -22,12 +22,12 @@ export async function setSwitch(page: Page, label: string, on: boolean): Promise
   await expect(sw).toHaveAttribute("aria-checked", String(on));
 }
 
-/** Reference combobox: open, search, pick the option. */
-export async function pickReference(page: Page, label: string, search: string, option: string): Promise<void> {
-  await page.getByRole("combobox", { name: label, exact: true }).click();
+/** Reference combobox: open, search, pick the option. `scope` narrows the combobox lookup (e.g. to a panel). */
+export async function pickReference(page: Page, label: string, search: string, option: string, scope: Page | Locator = page): Promise<void> {
+  await scope.getByRole("combobox", { name: label, exact: true }).click();
   await page.getByPlaceholder("Search…").fill(search);
   await page.getByRole("option", { name: option, exact: true }).click();
-  await expect(page.getByRole("combobox", { name: label, exact: true })).toContainText(option);
+  await expect(scope.getByRole("combobox", { name: label, exact: true })).toContainText(option);
   // Wait for the popover to finish closing before the next combobox opens.
   await expect(page.getByPlaceholder("Search…")).toHaveCount(0);
 }

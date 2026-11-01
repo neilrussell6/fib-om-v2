@@ -8,7 +8,7 @@ const filters = (r: { list: { filters: { label: string }[] } }) => r.list.filter
 
 describe("AC-6 list defaults, filters and columns", () => {
   it.each([
-    ["users", { key: "email", dir: "asc" }, ["Email"], ["Email"]],
+    ["users", { key: "email", dir: "asc" }, ["Name", "Email"], ["Email"]],
     ["clients", { key: "name", dir: "asc" }, ["Name", "Full Name", "Phone", "Shipping Address"], ["Name"]],
     [
       "products",
@@ -29,9 +29,10 @@ describe("AC-6 list defaults, filters and columns", () => {
     [
       "order_items",
       { key: "order_due_date", dir: "desc" },
-      ["Client", "Order Number", "Created", "Due", "Status"],
+      // Spec 06 AC-12 / AC-14: the design's columns; the Order Status filter is replaced by tabs.
+      ["Client", "Order", "Product", "Size", "Qty", "Due", "Status"],
       [
-        "Client", "Order", "Order Status", "Due From", "Due To", "Created From", "Created To", "Type Code",
+        "Client", "Order", "Due From", "Due To", "Created From", "Created To", "Type Code",
         "Part Number", "Height From", "Height To", "Width From", "Width To", "Depth From", "Depth To",
       ],
     ],
@@ -56,11 +57,11 @@ describe("AC-6 list defaults, filters and columns", () => {
 });
 
 describe("Navigation and headings", () => {
-  it("every resource is enabled in the sidebar, in the final order", async () => {
+  it("every resource is enabled in the sidebar, in the design's grouped order (spec 06)", async () => {
     const { NAV_ITEMS } = await import("@/components/app-shell/nav-items");
     expect(NAV_ITEMS.map((i) => i.label)).toEqual([
-      "Dashboard", "Orders", "Order Items", "Delivery Dockets", "Clients", "Product Categories",
-      "Product Media", "Products", "Product Sizes", "Product Types", "Users",
+      "Dashboard", "Orders", "Order Items", "Delivery Dockets", "Products", "Product Categories",
+      "Product Types", "Product Sizes", "Product Media", "Clients", "Users",
     ]);
   });
 
@@ -135,5 +136,54 @@ describe("AC-26 / AC-27 choices", () => {
   it("delivery docket form has to-client and status only", async () => {
     const { RESOURCES } = await load();
     expect(RESOURCES.delivery_dockets.fields.filter((f) => f.form !== false).map((f) => f.name)).toEqual(["to_client_id", "status"]);
+  });
+});
+
+describe("06 AC-8 list titles and New buttons", () => {
+  it.each([
+    ["users", "Users", "New user"],
+    ["clients", "Clients", "New client"],
+    ["product_categories", "Product categories", "New product category"],
+    ["product_types", "Product types", "New product type"],
+    ["product_sizes", "Product sizes", "New product size"],
+    ["product_media", "Product media", "New product media"],
+    ["products", "Products", "New product"],
+    ["orders", "Orders", "New order"],
+    ["order_items", "Order items", "New item"],
+    ["delivery_dockets", "Delivery dockets", "New delivery docket"],
+  ] as const)("%s → %s / %s", async (key, title, newLabel) => {
+    const { RESOURCES, resourceTitle, resourceNewLabel } = await load();
+    expect(resourceTitle(RESOURCES[key])).toBe(title);
+    expect(resourceNewLabel(RESOURCES[key])).toBe(newLabel);
+  });
+});
+
+describe("06 AC-13 status tabs", () => {
+  it("only order items declare statusTabs", async () => {
+    const { RESOURCES } = await load();
+    const withTabs = Object.values(RESOURCES).filter((r) => r.list.statusTabs).map((r) => r.key);
+    expect(withTabs).toEqual(["order_items"]);
+  });
+});
+
+describe("06 AC-12 order item columns", () => {
+  it("links the client, right-aligns quantity, and sorts by due date descending", async () => {
+    const { RESOURCES } = await load();
+    const c = RESOURCES.order_items.list.columns;
+    expect(c.map((x) => x.key)).toEqual([
+      "client_name", "order_number", "product_name", "product_size_name", "quantity", "order_due_date", "order_status",
+    ]);
+    expect(c[0].link).toEqual({ path: "/clients", idKey: "client_id" });
+    expect(c.find((x) => x.key === "quantity")?.align).toBe("right");
+    expect(RESOURCES.order_items.list.filters.filter((f) => f.alwaysShown).map((f) => f.key)).toEqual(["client", "order"]);
+  });
+});
+
+describe("06 AC-10 users name", () => {
+  it("has an optional Name field first on the form", async () => {
+    const { RESOURCES } = await load();
+    const [first] = RESOURCES.users.fields;
+    expect(first).toMatchObject({ name: "name", label: "Name", type: "text" });
+    expect(first.required).toBeFalsy();
   });
 });

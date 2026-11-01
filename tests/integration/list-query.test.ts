@@ -97,9 +97,10 @@ describe("AC-13 allowlists and injection", () => {
 });
 
 describe("Range and enum filters", () => {
+  // Spec 06: order status is the list's status tab (`status`), no longer an order-items filter key.
   it("filters order items by height range and order status", async () => {
     const { listRecords } = await load();
-    const hit = await listRecords("order_items", { filters: { part_number: fx.tag, height_from: "400", height_to: "600", order_status: "new" } });
+    const hit = await listRecords("order_items", { filters: { part_number: fx.tag, height_from: "400", height_to: "600" }, status: "new" });
     expect(hit.rows.map((x) => Number(x.id))).toEqual([fx.orderItemId]);
     const miss = await listRecords("order_items", { filters: { part_number: fx.tag, height_from: "501" } });
     expect(miss.rows).toEqual([]);

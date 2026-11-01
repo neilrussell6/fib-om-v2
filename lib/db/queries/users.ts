@@ -59,3 +59,10 @@ export async function deleteUserChecked(
   await db.query("DELETE FROM users WHERE id = $1", [targetId]);
   return { ok: true };
 }
+
+/** The sidebar footer's name and email for a user (spec 06), or null for an unknown id. */
+export async function getUserDisplay(userId: number | string): Promise<{ name: string | null; email: string } | null> {
+  if (!/^\d+$/.test(String(userId))) return null;
+  const rows = await sql<{ name: string | null; email: string }>`SELECT name, email FROM users WHERE id = ${userId}`;
+  return rows[0] ?? null;
+}

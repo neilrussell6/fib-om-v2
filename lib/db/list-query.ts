@@ -1,6 +1,6 @@
 import { query } from "@/lib/db";
 import { type FilterSql, QUERIES, type QueryConfig } from "@/lib/db/queries";
-import { getResource, isResourceKey, type ResourceKey } from "@/lib/resources";
+import { getResource, isResourceKey, ORDER_STATUS, type ResourceKey } from "@/lib/resources";
 
 export const PAGE_SIZES = [10, 25, 50, 100] as const;
 export const DEFAULT_PAGE_SIZE = 25;
@@ -14,6 +14,8 @@ export function normalisePageSize(n: unknown): number {
 
 export type ListParams = {
   filters?: Record<string, string | undefined>;
+  /** Order-status tab (spec 06): only for resources with `list.statusTabs`; unknown values mean All. */
+  status?: string;
   sort?: string;
   dir?: "asc" | "desc";
   page?: number;
@@ -78,17 +80,13 @@ function condition(f: FilterSql, param: number): string {
   }
 }
 
-/**
- * One page of a resource's list, filtered and sorted only by allowlisted keys,
- * with the total from count(*) OVER () in the same query (overview O5).
- */
-export async function listRecords(key: ResourceKey, params: ListParams): Promise<ListResult> {
+/** The WHERE conditions and values for a resource's allowlisted URL filters. */
+function filterWhere(key: ResourceKey, filters: Record<string, string | undefined>): { where: string[]; values: unknown[] } {
   const cfg = queryConfig(key);
   const ui = getResource(key);
-
   const where: string[] = [];
   const values: unknown[] = [];
-  for (const [name, raw] of Object.entries(params.filters ?? {})) {
+  for (const [name, raw] of Object.entries(filters)) {
     const f = cfg.filters[name];
     if (!f) throw new UnknownKeyError(`Unknown filter: ${name}`);
     if (raw === undefined || raw.trim() === "") continue;
@@ -97,6 +95,30 @@ export async function listRecords(key: ResourceKey, params: ListParams): Promise
     if (!isValidValue(f, value, options)) continue;
     values.push(f.kind === "contains" ? likeEscape(value) : value);
     where.push(condition(f, values.length));
+  }
+  return { where, values };
+}
+
+const STATUS_VALUES = ORDER_STATUS.map((o) => o.value);
+
+function requireStatusTabs(key: ResourceKey): void {
+  if (!getResource(key).list.statusTabs) throw new UnknownKeyError(`No status tabs on ${key}`);
+}
+
+/**
+ * One page of a resource's list, filtered and sorted only by allowlisted keys,
+ * with the total from count(*) OVER () in the same query (overview O5).
+ */
+export async function listRecords(key: ResourceKey, params: ListParams): Promise<ListResult> {
+  const cfg = queryConfig(key);
+  const ui = getResource(key);
+  const { where, values } = filterWhere(key, params.filters ?? {});
+  if (params.status !== undefined) {
+    requireStatusTabs(key);
+    if (STATUS_VALUES.includes(params.status)) {
+      values.push(params.status);
+      where.push(`order_status = $${values.length}::order_status`);
+    }
   }
 
   const sort = params.sort ?? ui.list.defaultSort.key;
@@ -119,4 +141,23 @@ export async function listRecords(key: ResourceKey, params: ListParams): Promise
   const total = rows.length ? Number(rows[0].__total) : 0;
   for (const r of rows) delete r.__total;
   return { rows, total, page, pageSize, sort, dir };
+}
+
+/**
+ * Rows per order status under the list's other filters, ignoring the selected
+ * status tab (spec 06). Every status is present, with 0 when it has no rows.
+ */
+export async function countByStatus(key: ResourceKey, filters: Record<string, string | undefined>): Promise<Record<string, number>> {
+  requireStatusTabs(key);
+  const cfg = queryConfig(key);
+  const { where, values } = filterWhere(key, filters);
+  const rows = await query<{ order_status: string; n: number }>(
+    `SELECT order_status::text, count(*)::int AS n FROM ${cfg.source}
+     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+     GROUP BY order_status`,
+    values,
+  );
+  const counts: Record<string, number> = Object.fromEntries(STATUS_VALUES.map((s) => [s, 0]));
+  for (const r of rows) counts[r.order_status] = Number(r.n);
+  return counts;
 }

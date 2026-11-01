@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { listRecords } from "@/lib/db/list-query";
 import { getRecord } from "@/lib/db/records";
-import { getResource } from "@/lib/resources";
+import { getResource, resourceNewLabel, resourceTitle } from "@/lib/resources";
 import type { ResourceKey } from "@/lib/resources/types";
 import { DataTable } from "./data-table";
 import { DeleteButton } from "./delete-button";
@@ -13,10 +13,21 @@ import { Pagination } from "./pagination";
 import { PrintButton } from "./print-button";
 import { ResourceForm } from "./resource-form";
 
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+export type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 type IdParams = Promise<{ id: string }>;
 
-const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+export const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+/** The list query's params from the URL: only the resource's own filter keys and column sort keys (spec 02). */
+export function listParamsFromUrl(resourceKey: ResourceKey, sp: Record<string, string | string[] | undefined>) {
+  const ui = getResource(resourceKey);
+  const filters = Object.fromEntries(ui.list.filters.map((f) => [f.key, first(sp[f.key])]).filter(([, v]) => v)) as Record<string, string>;
+  const sortParam = first(sp.sort);
+  const sort = ui.list.columns.some((c) => c.key === sortParam) ? sortParam : undefined;
+  const dirParam = first(sp.dir);
+  const dir: "asc" | "desc" | undefined = sort ? (dirParam === "desc" ? "desc" : "asc") : undefined;
+  return { filters, sort, dir, page: Number(first(sp.page)) || 1, pageSize: Number(first(sp.pageSize)) || undefined };
+}
 
 async function recordOr404(resourceKey: ResourceKey, params: IdParams) {
   const { id } = await params;
@@ -29,32 +40,19 @@ async function recordOr404(resourceKey: ResourceKey, params: IdParams) {
 /** List page: heading, Create, filters, table, pagination (spec 02). */
 export async function ResourceListPage({ resourceKey, searchParams }: { resourceKey: ResourceKey; searchParams: SearchParams }) {
   const ui = getResource(resourceKey);
-  const sp = await searchParams;
-  // Only the resource's own filter keys and column sort keys are read from the URL.
-  const filters = Object.fromEntries(ui.list.filters.map((f) => [f.key, first(sp[f.key])]).filter(([, v]) => v));
-  const sortParam = first(sp.sort);
-  const sort = ui.list.columns.some((c) => c.key === sortParam) ? sortParam : undefined;
-  const dirParam = first(sp.dir);
-  const dir = sort ? (dirParam === "desc" ? "desc" : "asc") : undefined;
-  const result = await listRecords(resourceKey, {
-    filters,
-    sort,
-    dir,
-    page: Number(first(sp.page)) || 1,
-    pageSize: Number(first(sp.pageSize)) || undefined,
-  });
+  const result = await listRecords(resourceKey, listParamsFromUrl(resourceKey, await searchParams));
 
   return (
-    <>
-      <PageHeader title={ui.plural}>
+    <div className="flex h-full flex-col">
+      <PageHeader title={resourceTitle(ui)}>
         <LinkButton href={`${ui.path}/new`} variant="default">
-          Create
+          {resourceNewLabel(ui)}
         </LinkButton>
       </PageHeader>
       <FilterBar filters={ui.list.filters} />
       <DataTable columns={ui.list.columns} rows={result.rows} path={ui.path} sort={result.sort} dir={result.dir} />
       <Pagination total={result.total} page={result.page} pageSize={result.pageSize} />
-    </>
+    </div>
   );
 }
 
@@ -77,7 +75,7 @@ export async function ResourceDetailPage({ resourceKey, params }: { resourceKey:
           const raw = f.type === "reference" && f.display ? record[f.display] : record[f.name];
           return (
             <div key={f.name} className="contents">
-              <dt className="font-medium text-secondary">{f.label}</dt>
+              <dt className="text-[13px] font-medium text-label">{f.label}</dt>
               <dd>{formatValue(raw, f.type, f.options) || "—"}</dd>
             </div>
           );

@@ -27,7 +27,7 @@ test("AC-3 signing in lands on the Dashboard inside the app shell", async ({ pag
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: /main/i })).toBeAttached();
-  await expect(page.getByRole("banner")).toBeVisible();
+  await expect(page.getByTestId("sidebar-user")).toBeVisible(); // spec 06: the user moved into the sidebar footer
 });
 
 test("AC-3 login page shows Fibatron on the background image", async ({ page }) => {
@@ -77,11 +77,11 @@ test("AC-5 email in a different case signs in", async ({ page }) => {
 // own user rather than the shared e2e user whose saved session other tests reuse.
 const SIGN_OUT_USER = { email: "e2e-signout@example.com", password: "signout-password-1" };
 
-test("AC-7 the top bar shows the email, and sign-out ends the session", async ({ page }) => {
+test("AC-7 the sidebar footer shows the email (spec 06), and sign-out ends the session", async ({ page }) => {
   ensureTestUser(SIGN_OUT_USER.email, SIGN_OUT_USER.password);
   await page.goto("/login");
   await signIn(page, SIGN_OUT_USER.email, SIGN_OUT_USER.password);
-  await expect(page.getByRole("banner")).toContainText(SIGN_OUT_USER.email);
+  await expect(page.getByTestId("sidebar-user")).toContainText(SIGN_OUT_USER.email);
   await page.getByRole("button", { name: /sign out/i }).click();
   await expect(page).toHaveURL(/\/login/);
   await page.goto("/");

@@ -1,5 +1,5 @@
-import { ResourceListPage } from "@/components/resource/pages";
+import { OrderItemsListPage } from "@/components/order-items/order-items-page";
 
 export default function Page({ searchParams }: PageProps<"/order-items">) {
-  return <ResourceListPage resourceKey="order_items" searchParams={searchParams} />;
+  return <OrderItemsListPage searchParams={searchParams} />;
 }

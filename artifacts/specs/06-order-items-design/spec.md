@@ -190,7 +190,7 @@ The panel holds **every field of the order item form**, plus the order's due dat
   | `--pill` (new) | `#eef0f0` | count pills, row dividers |
   | `--destructive` | `#b3261e` | errors, overdue |
   | `--warning` (new) | `#8a5a12` | due within 7 days |
-  | `--avatar` (new) | `#d4762a` | user avatar |
+  | `--avatar` (new) | `#b06223` | user avatar (the design's `#d4762a` darkened: white on it is 3.27:1; author decision 2026-11-01) |
   | `--radius` | `0.375rem` (6px) | pills use 10px |
 
   The sidebar variables (`--sidebar*`) point at `#f3f5f5` / `#2c3438` / `#0f5566` / `#e6eaeb` /
@@ -211,8 +211,9 @@ The panel holds **every field of the order item form**, plus the order's due dat
   - the count pill
   - each of the three status pills
 
-  The design's three failing greys are replaced by `#697175`; this is the one intended deviation
-  from the design's colours.
+  The design's three failing greys are replaced by `#697175`, and the avatar orange `#d4762a` by
+  `#b06223` (white initial 4.55:1, decided by the author during implementation, 2026-11-01). These are
+  the only intended deviations from the design's colours.
 - The fixed 16px root size stays (spec 01 AC-12).
 
 ### Shell

@@ -1,20 +1,7 @@
 import { Suspense } from "react";
-import { DesktopSidebar, MobileNav } from "@/components/app-shell/app-nav";
-import { SignOutButton } from "@/components/app-shell/sign-out-button";
+import { MobileNav } from "@/components/app-shell/app-nav";
+import { Sidebar } from "@/components/app-shell/sidebar";
 import { requireSession } from "@/lib/auth";
-
-/** Reads the session, so it streams in behind the static shell (Cache Components). */
-async function SignedInUser() {
-  const session = await requireSession();
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-sm text-sidebar-foreground" data-testid="signed-in-email">
-        {session.user?.email}
-      </span>
-      <SignOutButton />
-    </div>
-  );
-}
 
 async function Content({ children }: { children: React.ReactNode }) {
   // Defence in depth behind proxy.ts: never render app content without a session.
@@ -22,25 +9,22 @@ async function Content({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * The app shell (spec 06): a collapsible sidebar beside the page, no top bar.
+ * Below md a slim bar opens the same navigation in a sheet.
+ */
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
-    <div className="flex min-h-screen flex-1 flex-col bg-sidebar print:bg-white">
-      <header className="flex h-14 items-center justify-between gap-3 px-4 text-sidebar-foreground print:hidden">
-        <div className="flex items-center gap-2">
+    <div className="flex h-screen min-h-[600px] flex-1 overflow-hidden bg-background print:block print:h-auto print:overflow-visible">
+      <Sidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-sidebar px-3 md:hidden print:hidden">
           <Suspense fallback={null}>
             <MobileNav />
           </Suspense>
-          <span className="text-lg font-semibold">Fibatron</span>
-        </div>
-        <Suspense fallback={null}>
-          <SignedInUser />
-        </Suspense>
-      </header>
-      <div className="flex flex-1">
-        <Suspense fallback={<aside className="hidden w-60 shrink-0 md:block print:hidden" />}>
-          <DesktopSidebar />
-        </Suspense>
-        <main className="min-w-0 flex-1 bg-background p-6 text-foreground print:p-0">
+          <span className="text-base font-semibold">Fibatron</span>
+        </header>
+        <main className="min-h-0 flex-1 overflow-y-auto px-4 pt-7 pb-4 md:px-8 print:overflow-visible print:p-0">
           <Suspense fallback={null}>
             <Content>{children}</Content>
           </Suspense>
