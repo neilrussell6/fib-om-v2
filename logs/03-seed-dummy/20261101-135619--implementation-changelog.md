@@ -27,3 +27,7 @@
 
 - No change to this feature's code. The first full run failed 4 CRUD browser tests on the 30 s timeout. Every local query went through the local Neon proxy, which re-authenticates for each query (~200–350 ms). By author decision, every local connection now goes straight to Postgres and the proxy is removed (commit `2dbddae`, `logs/01-users-auth/20261101-171508--spec-revision-changelog.md`).
 - Unit test count is 167 (was 168): the `LOCAL_DB_VIA_PROXY` opt-in case went with the proxy.
+
+## 20261101-174942 — revision (review FAIL)
+
+- See `logs/03-seed-dummy/20261101-174942--revision-changelog.md`: Neon pooled/direct host matching in the guard, strict CLI arguments, rollback keeps the original error, setval/chunking nits, spec aligned with explicit ids.

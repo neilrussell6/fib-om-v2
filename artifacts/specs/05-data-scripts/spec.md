@@ -87,7 +87,7 @@ Production MySQL tables (Doctrine entity names): `order_data` (orders), `order_p
 - Built in spec 03 (`scripts/lib/target-guard.ts`); `seed-old` reuses it with the rules below.
 - With `--target local`, the host in `DATABASE_URL_UNPOOLED` must be `localhost`, `127.0.0.1` or `db.localtest.me` (spec 03); any other host is refused before connecting.
 - The operator's environment sets `PRODUCTION_DB_HOST` (the production Neon branch's endpoint host). It is required whenever `--target` is `staging` or `production`.
-- Before connecting, `seed-old` and `seed-dummy` compare the host in `DATABASE_URL_UNPOOLED` with `PRODUCTION_DB_HOST`. If they match and `--target` is not `production`, the script refuses. `seed-dummy` (spec 03) and `seed-old --wipe-orders` refuse whenever the host matches, whatever `--target` says.
+- Before connecting, `seed-old` and `seed-dummy` compare the host in `DATABASE_URL_UNPOOLED` with `PRODUCTION_DB_HOST`. If they match (pooled `ep-x-pooler.…` and direct `ep-x.…` forms count as the same host; `scripts/lib/target-guard.ts`, spec 03) and `--target` is not `production`, the script refuses. `seed-dummy` (spec 03) and `seed-old --wipe-orders` refuse whenever the host matches, whatever `--target` says.
 
 ### Notcher production capture (moved here from spec 04)
 - **`scripts/notcher-capture.sh`:** calls `https://fibatron.com/vw-notcher-api?key=…` on production with the key from `NOTCHER_API_KEY` (set to the production value on the trusted machine for the session; never logged) and saves the status, headers and raw body into the snapshot directory. `snapshot.sh` runs it in the same minute as the `mysqldump`.

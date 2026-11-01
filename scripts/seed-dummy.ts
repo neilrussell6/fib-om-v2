@@ -11,9 +11,10 @@
  * to type "staging" unless --yes is given.
  */
 import { createInterface } from "node:readline/promises";
+import { parseArgs } from "node:util";
 import pg from "pg";
 import { SHOW_COLUMNS, V1_CATEGORIES, flagsWith } from "@/lib/data/v1-categories";
-import { checkTarget, envValue, GuardError, isProductionHost, parseTarget, targetArg } from "./lib/target-guard";
+import { checkTarget, envValue, GuardError, isProductionHost, parseTarget } from "./lib/target-guard";
 
 export type Value = string | number | boolean | null;
 export type Row = Record<string, Value>;
@@ -269,24 +270,29 @@ const WIPED = [
   "product_categories",
   "clients",
 ] as const;
-/** Tables with explicit ids whose sequences restart (orders and order_items keep theirs). */
-const RESTARTED = ["clients", "product_categories", "product_types", "product_sizes", "product_media", "products", "delivery_dockets"] as const;
+/** Tables inserted with explicit ids, in FK order; each sequence is then set past the highest id. */
+const EXPLICIT_IDS = ["clients", "product_categories", "product_types", "product_sizes", "product_media", "products", "delivery_dockets"] as const;
+
+/** Rows per INSERT, so a statement stays well under Postgres's 65,535-parameter limit. */
+const CHUNK = 500;
 
 async function insertRows(c: pg.Client, table: string, rows: Row[], overriding: boolean): Promise<void> {
   if (rows.length === 0) return;
   const cols = Object.keys(rows[0]);
-  const params: Value[] = [];
-  const values = rows.map((row) => {
-    const placeholders = cols.map((col) => {
-      params.push(row[col]);
-      return `$${params.length}`;
+  for (let start = 0; start < rows.length; start += CHUNK) {
+    const params: Value[] = [];
+    const values = rows.slice(start, start + CHUNK).map((row) => {
+      const placeholders = cols.map((col) => {
+        params.push(row[col]);
+        return `$${params.length}`;
+      });
+      return `(${placeholders.join(", ")})`;
     });
-    return `(${placeholders.join(", ")})`;
-  });
-  await c.query(
-    `INSERT INTO ${table} (${cols.join(", ")}) ${overriding ? "OVERRIDING SYSTEM VALUE " : ""}VALUES ${values.join(", ")}`,
-    params,
-  );
+    await c.query(
+      `INSERT INTO ${table} (${cols.join(", ")}) ${overriding ? "OVERRIDING SYSTEM VALUE " : ""}VALUES ${values.join(", ")}`,
+      params,
+    );
+  }
 }
 
 /** Wipes and replaces all app data in one transaction; returns rows inserted per table. */
@@ -295,11 +301,11 @@ export async function seedDummy(c: pg.Client, dataset: Dataset): Promise<Record<
   try {
     // One statement: Postgres won't truncate a table referenced by one left out.
     await c.query(`TRUNCATE ${WIPED.join(", ")} CONTINUE IDENTITY`);
-    for (const t of RESTARTED) await c.query(`ALTER TABLE ${t} ALTER COLUMN id RESTART`);
 
-    for (const t of ["clients", "product_categories", "product_types", "product_sizes", "product_media", "products", "delivery_dockets"] as const) {
+    // Explicit ids from 1; the next generated id is one past the highest (1 for an empty table).
+    for (const t of EXPLICIT_IDS) {
       await insertRows(c, t, dataset[t], true);
-      await c.query(`SELECT setval(pg_get_serial_sequence('${t}', 'id'), (SELECT coalesce(max(id), 1) FROM ${t}))`);
+      await c.query(`SELECT setval(pg_get_serial_sequence('${t}', 'id'), (SELECT coalesce(max(id), 0) + 1 FROM ${t}), false)`);
     }
 
     // Orders take ids from their sequence, one at a time so each id maps to its position.
@@ -321,7 +327,8 @@ export async function seedDummy(c: pg.Client, dataset: Dataset): Promise<Record<
 
     await c.query("COMMIT");
   } catch (err) {
-    await c.query("ROLLBACK");
+    // A failed ROLLBACK (e.g. a dropped connection) must not hide the original error.
+    await c.query("ROLLBACK").catch(() => {});
     throw err;
   }
   return Object.fromEntries(Object.entries(dataset).map(([t, rows]) => [t, rows.length]));
@@ -329,23 +336,45 @@ export async function seedDummy(c: pg.Client, dataset: Dataset): Promise<Record<
 
 // ---- CLI -------------------------------------------------------------------------------
 
+/** A bad argument or setting: printed as one line, without a stack trace. */
+export class UsageError extends Error {
+  constructor(message: string) {
+    super(`Error: ${message}`);
+    this.name = "UsageError";
+  }
+}
+
+type Args = { target: string | undefined; seed: number; yes: boolean };
+
+/** Strict: unknown options, positionals and missing values are errors; `--opt=value` works. */
+export function parseCliArgs(argv: readonly string[]): Args {
+  let values: { target?: string; seed?: string; yes?: boolean };
+  try {
+    ({ values } = parseArgs({
+      args: [...argv],
+      options: { target: { type: "string" }, seed: { type: "string" }, yes: { type: "boolean" } },
+      strict: true,
+      allowPositionals: false,
+    }));
+  } catch (err) {
+    throw new UsageError(`${(err as Error).message} (usage: --target <local|staging> [--seed <n>] [--yes])`);
+  }
+  let seed = 1;
+  if (values.seed !== undefined) {
+    seed = Number(values.seed);
+    if (values.seed.trim() === "" || !Number.isInteger(seed)) throw new UsageError(`--seed must be an integer, got "${values.seed}"`);
+  }
+  return { target: values.target, seed, yes: values.yes ?? false };
+}
+
 function positiveInt(name: string, value: string): number {
   const n = Number(value);
-  if (!Number.isInteger(n) || n < 1) throw new Error(`${name} must be a positive integer, got "${value}"`);
+  if (!Number.isInteger(n) || n < 1) throw new UsageError(`${name} must be a positive integer, got "${value}"`);
   return n;
 }
 
-function seedArg(argv: readonly string[]): number {
-  const i = argv.indexOf("--seed");
-  if (i === -1) return 1;
-  const v = argv[i + 1];
-  const n = Number(v);
-  if (v === undefined || !Number.isInteger(n)) throw new Error(`--seed must be an integer, got "${v ?? ""}"`);
-  return n;
-}
-
-async function confirmStaging(argv: readonly string[]): Promise<void> {
-  if (argv.includes("--yes")) return;
+async function confirmStaging(yes: boolean): Promise<void> {
+  if (yes) return;
   if (!process.stdin.isTTY) {
     throw new GuardError("--target staging needs a typed confirmation; run it in a terminal or pass --yes");
   }
@@ -356,7 +385,8 @@ async function confirmStaging(argv: readonly string[]): Promise<void> {
 }
 
 async function main(argv: readonly string[]): Promise<void> {
-  const target = parseTarget(targetArg(argv));
+  const args = parseCliArgs(argv);
+  const target = parseTarget(args.target);
   if (target === "production") throw new GuardError("seed-dummy never runs against production");
   if (target === "local") {
     try {
@@ -368,13 +398,13 @@ async function main(argv: readonly string[]): Promise<void> {
   checkTarget(target);
   if (isProductionHost()) throw new GuardError("DATABASE_URL_UNPOOLED points at the production database");
 
-  const seed = seedArg(argv);
+  const seed = args.seed;
   let fromClientId = 1;
   const fromEnv = envValue("FROM_CLIENT_ID");
   if (target === "staging") {
     if (!fromEnv) throw new GuardError("FROM_CLIENT_ID must be set for --target staging (use Vercel Preview's value)");
     fromClientId = positiveInt("FROM_CLIENT_ID", fromEnv);
-    await confirmStaging(argv);
+    await confirmStaging(args.yes);
   } else if (fromEnv) {
     fromClientId = positiveInt("FROM_CLIENT_ID", fromEnv);
   }
@@ -394,7 +424,7 @@ if (process.argv[1] && /seed-dummy\.ts$/.test(process.argv[1])) {
   main(process.argv.slice(2)).then(
     () => process.exit(0),
     (err: unknown) => {
-      console.error(err instanceof GuardError ? err.message : err);
+      console.error(err instanceof GuardError || err instanceof UsageError ? err.message : err);
       process.exit(1);
     },
   );

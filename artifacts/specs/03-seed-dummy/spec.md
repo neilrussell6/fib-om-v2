@@ -28,12 +28,12 @@ For developers and operators:
 - **`scripts/seed-dummy.ts --target <local|staging> [--seed <n>] [--yes]`** (`npm run seed:dummy -- --target …`; `package.json` gets `"seed:dummy": "tsx scripts/seed-dummy.ts"`, like `create-user`)
   - **Wipes and replaces** all app data: empties every app table except `users`, `login_attempts` and the Atlas revisions table, then fills them with the synthetic dataset. Existing users are unchanged.
   - `--target` is required and must be `local` or `staging`. It only labels the target for the safety guards; the connection always comes from `DATABASE_URL_UNPOOLED` (a direct connection, like migrations).
-  - `--seed` is an integer, default `1`. The same seed always produces the same data.
+  - `--seed` is an integer, default `1`. The same seed always produces the same data. Options also take the `--opt=value` form. An unknown option, a stray argument or a non-integer `--seed` is an error (revised 2026-11-01, review).
   - **`--target local`** only accepts a local database host (see Target guard). `FROM_CLIENT_ID` defaults to `1`, matching `.env.tpl` and CI.
   - **`--target staging`** requires `PRODUCTION_DB_HOST` and `FROM_CLIENT_ID` to be set explicitly; `FROM_CLIENT_ID` must be the value in Vercel's Preview environment, so the staging app's docket sender exists. It then asks the operator to type `staging` to confirm. A run with no terminal exits non-zero before connecting, unless `--yes` is given.
   - With `--target local`, reads `.env` if present (like `create-user`), so locally it needs no extra setup. With `--target staging`, `.env` is not read: the operator sets the staging branch's `DATABASE_URL_UNPOOLED`, `PRODUCTION_DB_HOST` and `FROM_CLIENT_ID` for the session only (never in a committed file), so a stale local `.env` never mixes into a staging run. An empty `PRODUCTION_DB_HOST` or `FROM_CLIENT_ID` counts as unset.
   - Prints a summary: rows inserted per table, the seed, and the target.
-  - Exits non-zero with a clear message on any refusal or error, and leaves the database unchanged.
+  - Exits non-zero with a clear message on any refusal or error, and leaves the database unchanged. Refusals and argument errors are one line, with no stack trace; if the rollback itself fails, the original error is reported.
 - **Never from CI.** No workflow runs `seed-dummy`. On staging an operator runs it, after `deploy.yml` has migrated the schema.
 - On staging, `seed-dummy` replaces any real reference data loaded by `seed-old`. `seed-old --target staging --wipe-orders` (spec 05) puts the real reference data back.
 
@@ -55,7 +55,7 @@ Coverage, so every screen and every later feature has something to show:
 
 - **Reference data:** at least 30 clients. One category per entry in `lib/data/v1-categories.ts`, with v1's names and `show_*` flags, plus two dummy categories: "Dummy All Columns" (every flag on) and "Dummy No Columns" (every flag off). Product types with and without `millimetres_per_pleat`; product media with and without `pleat_spacing`. At least 60 products spread over every category, with `notcher` both true and false and `efficiency` both set and NULL.
 - **Sender client:** a client with id `FROM_CLIENT_ID` is always present, named "Fibatron (dummy)", so docket creation (spec 02) works.
-- **Client ids:** `buildDataset` assigns every client id itself: the sender gets `FROM_CLIENT_ID`, and the dummy clients get the other ids from 1 upward, skipping it. Other tables take ids from their sequences.
+- **Client ids:** `buildDataset` assigns every client id itself: the sender gets `FROM_CLIENT_ID`, and the dummy clients get the other ids from 1 upward, skipping it. The other reference tables (categories, types, sizes, media, products) and `delivery_dockets` also get explicit ids from 1, so the dataset can refer to them directly; only `orders` and `order_items` take ids from their sequences (revised 2026-11-01, review).
 - **Orders:** at least 60, in every `order_status` (`new`, `complete`, `archived`), with due dates before and after the anchor date, with and without a delivery docket.
 - **Order items:** at least 300, spread over every category; every value of every enum column (`clip_type`, `clip_position`, `wire_mesh`, `wire_sides`, `media_mats`, `gasket`) and NULL for each nullable column; both values of every boolean column, including all seven stage statuses; zero and non-zero dimensions; non-ASCII text and `/` in at least one `comment` and `part_number`.
 - **Delivery dockets:** at least 20, in both `docket_status` values, sent from the sender client; some with several orders, some with none.
@@ -65,9 +65,9 @@ Coverage, so every screen and every later feature has something to show:
 One transaction; any error rolls back the whole run:
 
 1. One `TRUNCATE … CONTINUE IDENTITY` of every app table except `users`, `login_attempts` and the Atlas revisions table. They must go in a single statement, because Postgres refuses to truncate a table that another table not in the statement references.
-2. `ALTER SEQUENCE … RESTART` for the reference tables' and `delivery_dockets`' identity sequences only.
+2. Insert the reference tables (clients, categories, types, sizes, media, products) and `delivery_dockets` with their explicit ids using `OVERRIDING SYSTEM VALUE`, and after each table set its identity sequence so the next id is one past the highest (1 for an empty table). The `orders` and `order_items` sequences are never touched.
 3. **`orders` and `order_items` keep their sequences**, and their rows take ids from them. Once `seed-old` has set those sequences above the legacy maximum (spec 05), `seed-dummy` never lowers them, so new ids never reuse ids the notcher software has already seen.
-4. Insert the dataset in FK order: reference tables → delivery dockets → orders → order items. Every client is inserted with its assigned id using `OVERRIDING SYSTEM VALUE`, and the `clients` sequence is then set above the highest client id.
+4. Insert in FK order: reference tables → delivery dockets → orders → order items. Large tables go in batches of at most 500 rows per statement.
 
 Uses `pg` over `DATABASE_URL_UNPOOLED`, like the test helpers and migrations. No app code paths (Server Actions) are used.
 
@@ -76,7 +76,7 @@ Uses `pg` over `DATABASE_URL_UNPOOLED`, like the test helpers and migrations. No
 
 - Parses `--target`; a missing or unknown value is refused.
 - **Local hosts:** with `--target local`, the host in `DATABASE_URL_UNPOOLED` must be `localhost`, `127.0.0.1` or `db.localtest.me`; any other host is refused. This also applies to `seed-old --target local`.
-- **Production host:** `PRODUCTION_DB_HOST` (the production Neon branch's endpoint host) is required whenever `--target` is `staging` or `production`. When the host in `DATABASE_URL_UNPOOLED` matches it and `--target` isn't `production`, the script refuses.
+- **Production host:** `PRODUCTION_DB_HOST` (the production Neon branch's endpoint host) is required whenever `--target` is `staging` or `production`. When the host in `DATABASE_URL_UNPOOLED` matches it and `--target` isn't `production`, the script refuses. Neon serves each branch on a direct host (`ep-x.…`) and a pooled one (`ep-x-pooler.…`); the comparison drops `-pooler` from the first label on both sides, so either form in either variable matches (revised 2026-11-01, review).
 - **`seed-dummy`'s own rules:** `--target production` is refused; the production host is refused whatever `--target` says; `--target staging` requires `FROM_CLIENT_ID` and the typed confirmation (or `--yes`).
 
 ### Changes from the original

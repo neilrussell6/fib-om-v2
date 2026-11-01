@@ -253,6 +253,26 @@ describe("AC-4 sequences", () => {
   });
 });
 
+describe("review nits b and c", () => {
+  it("sets an empty table's sequence so its next id is 1", async () => {
+    const ds = buildDataset(1, 1);
+    for (const o of ds.orders) o.delivery_docket_id = null;
+    ds.delivery_dockets = [];
+    await seed(ds);
+    const next = await one<{ id: string }>(
+      "INSERT INTO delivery_dockets (from_client_id, to_client_id, date) VALUES (1, 1, '2026-01-01') RETURNING id::text AS id",
+    );
+    expect(next.id).toBe("1");
+  });
+
+  it("inserts more order items than one chunk holds", async () => {
+    const ds = buildDataset(1, 1);
+    ds.order_items = [...ds.order_items, ...ds.order_items, ...ds.order_items, ...ds.order_items];
+    await seed(ds);
+    expect((await one<{ n: number }>("SELECT count(*)::int AS n FROM order_items")).n).toBe(1440);
+  });
+});
+
 describe("AC-5 rollback on failure", () => {
   it("leaves every table as it was when an insert fails", async () => {
     await seed(buildDataset(1, 1));

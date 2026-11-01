@@ -70,3 +70,43 @@ describe("AC-7 production host and local hosts", () => {
     expect(r.out).toMatch(CONNECTION_ERROR);
   });
 });
+
+describe("argument errors (review finding 3)", () => {
+  const STACK = /\n\s+at /;
+  it.each<[string, string[], Partial<Env>, RegExp]>([
+    ["an unknown option", ["--target", "local", "--sead", "5"], {}, /Error: Unknown option '--sead'/],
+    ["a non-integer --seed", ["--target", "local", "--seed", "abc"], {}, /Error: --seed must be an integer, got "abc"/],
+    [
+      "a non-numeric FROM_CLIENT_ID",
+      ["--target", "staging", "--yes"],
+      { FROM_CLIENT_ID: "x" },
+      /Error: FROM_CLIENT_ID must be a positive integer, got "x"/,
+    ],
+  ])("prints one line for %s, before connecting", (_name, args, override, message) => {
+    const r = run(args, { ...valid, DATABASE_URL_UNPOOLED: "postgres://x@localhost:1/none", ...override });
+    expect(r.status).not.toBe(0);
+    expect(r.out).toMatch(message);
+    expect(r.out).not.toMatch(STACK);
+    expect(r.out).not.toMatch(CONNECTION_ERROR);
+  });
+
+  it("accepts --target=local --seed=5", () => {
+    const r = run(["--target=local", "--seed=5"], { ...valid, DATABASE_URL_UNPOOLED: "postgres://x@localhost:1/none" });
+    expect(r.status).not.toBe(0);
+    expect(r.out).not.toMatch(/Refused:|Unknown option|must be an integer|argument missing/);
+    expect(r.out).toMatch(CONNECTION_ERROR);
+  });
+});
+
+describe("guard with Neon pooled and direct hosts (review finding 1)", () => {
+  it("refuses --target staging --yes when PRODUCTION_DB_HOST is the pooled form of the URL's host", () => {
+    const r = run(["--target", "staging", "--yes"], {
+      ...valid,
+      DATABASE_URL_UNPOOLED: "postgres://x@ep-guard-1.seed-guard.invalid:1/none",
+      PRODUCTION_DB_HOST: "ep-guard-1-pooler.seed-guard.invalid",
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.out).toMatch(/Refused: DATABASE_URL_UNPOOLED points at the production database/);
+    expect(r.out).not.toMatch(CONNECTION_ERROR);
+  });
+});

@@ -7,6 +7,9 @@
 export const TARGETS = ["local", "staging", "production"] as const;
 export type Target = (typeof TARGETS)[number];
 
+/** process.env, or a plain object in tests. */
+export type Env = Record<string, string | undefined>;
+
 export const LOCAL_HOSTS = ["localhost", "127.0.0.1", "db.localtest.me"] as const;
 
 export class GuardError extends Error {
@@ -17,19 +20,9 @@ export class GuardError extends Error {
 }
 
 /** An empty value counts as unset (a test or shell may pass VAR= to clear it). */
-export function envValue(name: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
+export function envValue(name: string, env: Env = process.env): string | undefined {
   const v = env[name]?.trim();
   return v ? v : undefined;
-}
-
-/** Reads `--target <value>` (or `--target=<value>`) from argv; undefined when absent. */
-export function targetArg(argv: readonly string[]): string | undefined {
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--target") return argv[i + 1];
-    if (a.startsWith("--target=")) return a.slice("--target=".length);
-  }
-  return undefined;
 }
 
 export function parseTarget(value: string | undefined): Target {
@@ -50,13 +43,23 @@ export function hostOf(databaseUrl: string | undefined): string {
 }
 
 /**
+ * One name per Neon endpoint: Neon serves each branch on a direct host (`ep-x.<region>…`) and a
+ * pooled one (`ep-x-pooler.<region>…`). Dropping "-pooler" from the first label lets the
+ * production-host check match whichever form either variable holds.
+ */
+export function endpointHost(host: string): string {
+  const [first, ...rest] = host.toLowerCase().split(".");
+  return [first.replace(/-pooler$/, ""), ...rest].join(".");
+}
+
+/**
  * The rules shared by every data script:
  * - `local` only accepts a local database host;
  * - `staging` and `production` need PRODUCTION_DB_HOST;
- * - a host equal to PRODUCTION_DB_HOST is refused unless the target is `production`.
+ * - a host on PRODUCTION_DB_HOST's endpoint (pooled or direct) is refused unless the target is `production`.
  * Returns the database host.
  */
-export function checkTarget(target: Target, env: NodeJS.ProcessEnv = process.env): string {
+export function checkTarget(target: Target, env: Env = process.env): string {
   const host = hostOf(envValue("DATABASE_URL_UNPOOLED", env));
   if (target === "local") {
     if (!(LOCAL_HOSTS as readonly string[]).includes(host)) {
@@ -68,15 +71,15 @@ export function checkTarget(target: Target, env: NodeJS.ProcessEnv = process.env
   }
   const productionHost = envValue("PRODUCTION_DB_HOST", env)?.toLowerCase();
   if (!productionHost) throw new GuardError(`PRODUCTION_DB_HOST must be set for --target ${target}`);
-  if (target !== "production" && host === productionHost) {
+  if (target !== "production" && endpointHost(host) === endpointHost(productionHost)) {
     throw new GuardError(`DATABASE_URL_UNPOOLED points at the production database (${host}), but --target is ${target}`);
   }
   return host;
 }
 
-/** True when DATABASE_URL_UNPOOLED's host is the production host (for scripts that never touch production). */
-export function isProductionHost(env: NodeJS.ProcessEnv = process.env): boolean {
-  const productionHost = envValue("PRODUCTION_DB_HOST", env)?.toLowerCase();
+/** True when DATABASE_URL_UNPOOLED is on the production endpoint (for scripts that never touch production). */
+export function isProductionHost(env: Env = process.env): boolean {
+  const productionHost = envValue("PRODUCTION_DB_HOST", env);
   if (!productionHost) return false;
-  return hostOf(envValue("DATABASE_URL_UNPOOLED", env)) === productionHost;
+  return endpointHost(hostOf(envValue("DATABASE_URL_UNPOOLED", env))) === endpointHost(productionHost);
 }
