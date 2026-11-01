@@ -89,6 +89,7 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261101-125349 — Phase 1, step "commit": done — commit `1f43c9b`
 - 20261101-133629 — Phase 1, step "spec review" + "spec validation": FAIL — `logs/03-seed-dummy/20261101-133629--spec-review--FAIL.md`
 - 20261101-133629 — Phase 1, step "spec revision": done — `logs/03-seed-dummy/20261101-133629--spec-revision-changelog.md` (spec 05 also revised: `logs/05-data-scripts/20261101-133629--spec-revision-changelog.md`)
+- 20261101-133629 — Phase 1, step "commit": done — commit `5096ace`
 
 ## 04-custom-behaviour
 
