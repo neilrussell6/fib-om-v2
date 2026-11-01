@@ -1,4 +1,6 @@
 name: Deploy
+# Each run's title in the Actions list says which environment it deploys.
+run-name: ${{ github.event_name == 'workflow_dispatch' && 'Prod Deploy' || 'Staging Deploy' }}
 
 # Migrations and deploys only ever run here (overview O7). Vercel's Git auto-deploys are off.
 # - CI passes on a push to main → staging (preview build, aliased to STAGING_DOMAIN, Neon "staging" branch)
@@ -21,6 +23,7 @@ env:
 
 jobs:
   deploy-preview:
+    name: Staging Deploy
     if: >-
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
@@ -101,6 +104,7 @@ jobs:
           echo "Deployed $DEPLOYMENT_URL → https://$STAGING_DOMAIN"
 
   deploy-production:
+    name: Prod Deploy
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production
