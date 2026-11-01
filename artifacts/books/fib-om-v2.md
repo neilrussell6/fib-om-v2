@@ -308,3 +308,23 @@ The last feature gets real data into the new system and plans the switchover. Th
 Several safeguards protect production. `seed-old` keeps the new order and order-item id counters above production's highest ids, so the notcher never sees an id twice. The scripts compare their target host against a known production host, so a mislabelled target can't be wiped. Snapshots stay on an encrypted disk and are deleted after cutover.
 
 The cutover plan changed with the discovery that production is PHP on MySQL. The final archive is a `mysqldump`. The old site stays reachable at `old.fibatron.com` for 30 days. `fibatron.com` itself keeps pointing at the PHP app until staging has been tested thoroughly. Review also removed the one step that would have written to production: a test order created to confirm one JSON field. The notcher machine ignores docket data, and a live test job could have been processed on the factory floor, so the step wasn't worth that risk.
+
+---
+
+# 6. Order items redesign (`06-order-items-design`)
+
+## Spec
+
+With the CRUD screens working, the author mocked up how the app should actually look in Claude Design: a single "Order Items" screen. It used IBM Plex type, a quiet teal-and-grey palette, a light sidebar that collapses to icons, status tabs with counts, and an edit panel that slides in on the right when a row is clicked. This feature turns that mock-up into the real app. It comes before custom behaviour, so the category columns and stage toggles of feature 4 can land on top of the new list rather than being restyled afterwards.
+
+The first decision was how literally to read the design. It looked like a field specification: five item statuses (New, In production, Ready, Dispatched, Archived), a "Due: Next 30 days" filter, a panel with six fields. None of that matched the data. Status lives on the order, not the item, and has three values. An item has seven yes/no production stages and twenty-odd fields. The first draft of the spec tried to honour the design by *deriving* the five statuses from the order status, docket link and stages. Going through the review one item at a time, the author settled it the other way: **the design is a visual reference, not a data spec.** The tabs became the real order statuses:
+
+```
+All (n) · New (n) · Complete (n) · Archived (n)      ?status=new|complete|archived
+```
+
+The panel holds every field of the item form, the Due filter stays an ordinary From/To range, and the design's status chips set only the chip style. Those chips are editable, and because status and due date belong to the order, the panel says so: "Due date and status apply to all N items on order X".
+
+Review caught two real problems. The draft put the panel's "line 2" and item count into `order_items_v` as window functions. Postgres can't push a list's filters below a window function, so every list query would have numbered the whole table first. Both moved into the panel's single-item query as correlated counts, and the view needed no change at all. The second problem was the Save action, which reused the generic item schema. Once Order became editable in the panel, the spec had to say which order's due date changes when an item moves. The answer: update the item first, then read its order id back from the saved row, so a moved item only ever changes its new order.
+
+The rest is restyling, done mostly through the shared list components, so every page changes at once. The design's palette maps onto the existing shadcn variables. Three of its greys fail WCAG AA for small text (`#7d878b` on the table header is 3.55:1), so they become `#697175`, the closest same-hue shade that passes. That's the one deliberate departure from the design. Fonts come through `next/font`, so nothing is fetched from Google at runtime. The sidebar's collapse state lives in a cookie read inside a Suspense boundary, and the fallback renders the same layout by media query, so the static shell survives Cache Components and the sidebar never changes width while the page loads. The design shows a name in the sidebar, but users only had an email, so a nullable `users.name` column was added, with the email as the fallback. Relative due dates ("2d overdue", "in 3d") are computed in SQL against `Australia/Brisbane`, which has no daylight saving.

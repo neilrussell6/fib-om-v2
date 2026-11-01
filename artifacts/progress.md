@@ -158,3 +158,14 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261031-170623 — Phase 1, step "spec revision" (non-blocking items): done — `logs/04-data-scripts/20261031-170623--spec-revision-changelog.md`
 - 20261031-170629 — Phase 1, step "commit": done — commit `fadc02c`
 - 20261031-170759 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/04-data-scripts/20261031-170759--book-changelog.md`
+
+## 06-order-items-design
+
+- 20261101-214031 — Phase 1, step "research": done — `artifacts/specs/06-order-items-design/research.md`
+- 20261101-214031 — Phase 1, step "spec": done — `artifacts/specs/06-order-items-design/spec.md`
+- 20261101-220928 — Phase 1, step "spec review" + "spec validation": FAIL — `logs/06-order-items-design/20261101-220928--spec-review--FAIL.md`
+- 20261101-221144 — Phase 1, step "spec revision": done — `logs/06-order-items-design/20261101-221144--spec-revision-changelog.md`
+- 20261101-221402 — Phase 1, step "spec revision" (non-blocking items): done — `logs/06-order-items-design/20261101-221402--spec-revision-changelog.md`
+- 20261101-221422 — Phase 1, step "spec review" + "spec validation": PASS — `logs/06-order-items-design/20261101-221422--spec-review--PASS.md`
+- 20261101-221422 — Phase 1, step "commit": done — commit `0f3a638`
+- 20261101-221452 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/06-order-items-design/20261101-221452--book-changelog.md`
