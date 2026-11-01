@@ -29,7 +29,7 @@ FROM_CLIENT_ID=
 #   --target local      .env (this file)
 #   --target staging    .env.staging
 #   --target production .env.prod (create-user, seed-old; seed-dummy refuses production)
-# .env.staging / .env.prod hold:
+# .env.staging (template: .env.staging.tpl) / .env.prod hold:
 #   DATABASE_URL_UNPOOLED=   that branch's direct (non-pooler) connection string
 #   PRODUCTION_DB_HOST=      production's endpoint host (pooled or direct form)
 #   FROM_CLIENT_ID=          Vercel's value for that environment (staging: Preview)
