@@ -31,7 +31,7 @@ For developers and operators:
   - `--seed` is an integer, default `1`. The same seed always produces the same data.
   - **`--target local`** only accepts a local database host (see Target guard). `FROM_CLIENT_ID` defaults to `1`, matching `.env.tpl` and CI.
   - **`--target staging`** requires `PRODUCTION_DB_HOST` and `FROM_CLIENT_ID` to be set explicitly; `FROM_CLIENT_ID` must be the value in Vercel's Preview environment, so the staging app's docket sender exists. It then asks the operator to type `staging` to confirm. A run with no terminal exits non-zero before connecting, unless `--yes` is given.
-  - Reads `.env` if present (like `create-user`), so locally it needs no extra setup. For staging, the operator sets the staging branch's `DATABASE_URL_UNPOOLED`, `PRODUCTION_DB_HOST` and `FROM_CLIENT_ID` for the session only; they are never written to a committed file.
+  - With `--target local`, reads `.env` if present (like `create-user`), so locally it needs no extra setup. With `--target staging`, `.env` is not read: the operator sets the staging branch's `DATABASE_URL_UNPOOLED`, `PRODUCTION_DB_HOST` and `FROM_CLIENT_ID` for the session only (never in a committed file), so a stale local `.env` never mixes into a staging run. An empty `PRODUCTION_DB_HOST` or `FROM_CLIENT_ID` counts as unset.
   - Prints a summary: rows inserted per table, the seed, and the target.
   - Exits non-zero with a clear message on any refusal or error, and leaves the database unchanged.
 - **Never from CI.** No workflow runs `seed-dummy`. On staging an operator runs it, after `deploy.yml` has migrated the schema.
@@ -86,6 +86,7 @@ Uses `pg` over `DATABASE_URL_UNPOOLED`, like the test helpers and migrations. No
 - **Determinism made explicit:** `--seed` with a default, and a fixed anchor date for every date column.
 - **Categories from v1.** The original asked for "every category attribute value"; the categories now use v1's real names and flags, plus two edge-case categories.
 - **Stricter guard:** local hosts only for `--target local`, `FROM_CLIENT_ID` required and a typed confirmation for `--target staging`.
+- **`.env` only for local** (decided 2026-11-01, task review): `--target staging` uses the session environment alone.
 
 ## Acceptance criteria
 
