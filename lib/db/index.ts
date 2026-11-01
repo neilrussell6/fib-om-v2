@@ -1,20 +1,15 @@
 import { neon, neonConfig, Pool, type PoolClient, types } from "@neondatabase/serverless";
 import type { Pool as PgPool } from "pg";
 import ws from "ws";
-import { usesLocalProxy } from "./local-proxy";
+import { isLocalDatabase } from "./local-host";
 
 /**
- * @neondatabase/serverless everywhere except `next dev`. On Neon it talks to
- * Neon's HTTP and WebSocket endpoints; in integration tests, e2e (`next start`)
- * and CI, DATABASE_URL points at a Neon-compatible proxy (local-neon-http-proxy)
- * in front of plain Postgres, so the deployed driver path stays tested.
+ * @neondatabase/serverless on Neon (its HTTP and WebSocket endpoints).
  *
- * Under `next dev` against a local database, queries go straight to Postgres
- * with node-postgres instead: the local proxy re-authenticates and opens a new
- * connection for every query (~250 ms each). Set LOCAL_DB_VIA_PROXY=1 to use the
- * proxy in dev too.
+ * Against a local database (dev, integration tests, e2e and CI) queries go straight
+ * to Postgres with node-postgres. (A local Neon-compatible proxy was tried and dropped:
+ * it re-authenticated on every query, ~200-350 ms each.)
  */
-const LOCAL_PROXY_PORT = Number(process.env.LOCAL_NEON_PROXY_PORT ?? 4444);
 
 function databaseUrl(): string {
   const url = process.env.DATABASE_URL;
@@ -22,15 +17,13 @@ function databaseUrl(): string {
   return url;
 }
 
-/** True only for `next dev` against an explicitly local host (never on Neon, in tests or in a build). */
-export function usesDirectDevConnection(
-  env: { NODE_ENV?: string; LOCAL_DB_VIA_PROXY?: string; DATABASE_URL?: string } = process.env,
+/** True for an explicitly local database host (never for Neon). */
+export function usesDirectConnection(
+  env: Record<string, string | undefined> = process.env,
 ): boolean {
   return (
-    env.NODE_ENV === "development" &&
-    env.LOCAL_DB_VIA_PROXY !== "1" &&
     !!env.DATABASE_URL &&
-    usesLocalProxy(env.DATABASE_URL)
+    isLocalDatabase(env.DATABASE_URL)
   );
 }
 
@@ -41,15 +34,9 @@ function configure(): void {
   neonConfig.webSocketConstructor = ws;
   // DATE columns stay as "YYYY-MM-DD" strings (no timezone shifts through JS Date).
   types.setTypeParser(types.builtins.DATE, (value: string) => value);
-  if (usesLocalProxy(databaseUrl())) {
-    neonConfig.fetchEndpoint = (host) => `http://${host}:${LOCAL_PROXY_PORT}/sql`;
-    neonConfig.useSecureWebSocket = false;
-    neonConfig.wsProxy = (host) => `${host}:${LOCAL_PROXY_PORT}/v2`;
-    neonConfig.pipelineConnect = false;
-  }
 }
 
-// Dev-only node-postgres pool, kept on globalThis so hot reloads don't open a new pool each time.
+// node-postgres pool for a local database, kept on globalThis so dev hot reloads don't open a new pool each time.
 const devGlobal = globalThis as typeof globalThis & { __fibDevPool?: Promise<PgPool> };
 function devPool(): Promise<PgPool> {
   devGlobal.__fibDevPool ??= import("pg").then((mod) => {
@@ -69,7 +56,7 @@ function client(): ReturnType<typeof neon> {
 
 /** Tagged-template SQL over HTTP. Values become $n parameters. */
 export function sql<T = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T[]> {
-  if (usesDirectDevConnection()) {
+  if (usesDirectConnection()) {
     const text = strings.reduce((acc, part, i) => `${acc}$${i}${part}`);
     return query<T>(text, values);
   }
@@ -81,7 +68,7 @@ export function sql<T = Record<string, unknown>>(strings: TemplateStringsArray, 
  * (allowlisted identifiers); every value goes in params as $n.
  */
 export async function query<T = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> {
-  if (usesDirectDevConnection()) return (await (await devPool()).query(text, params)).rows as T[];
+  if (usesDirectConnection()) return (await (await devPool()).query(text, params)).rows as T[];
   return (await client().query(text, params)) as unknown as T[];
 }
 
@@ -95,9 +82,9 @@ export function getPool(): Pool {
   return pool;
 }
 
-/** Runs fn inside a transaction on a pooled connection (WebSocket on Neon; node-postgres under `next dev`). */
+/** Runs fn inside a transaction on a pooled connection (WebSocket on Neon; node-postgres locally). */
 export async function tx<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const conn = usesDirectDevConnection()
+  const conn = usesDirectConnection()
     ? ((await (await devPool()).connect()) as unknown as PoolClient)
     : await getPool().connect();
   try {

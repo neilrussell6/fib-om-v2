@@ -27,13 +27,6 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 20
-      # Neon-compatible HTTP/WebSocket proxy, so the app's @neondatabase/serverless driver works against plain Postgres.
-      neon-proxy:
-        image: ghcr.io/timowilhelm/local-neon-http-proxy:main
-        env:
-          PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/main
-        ports:
-          - 4444:4444
 
     env:
       DATABASE_URL: postgres://postgres:postgres@db.localtest.me:5432/main

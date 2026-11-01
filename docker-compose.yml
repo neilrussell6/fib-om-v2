@@ -1,6 +1,5 @@
-# Local Postgres 17 for development, integration tests and Playwright, behind a
-# Neon-compatible HTTP/WebSocket proxy so the app uses @neondatabase/serverless
-# exactly as it does on Neon.
+# Local Postgres 17 for development, integration tests and Playwright. The app
+# connects to it directly with node-postgres (lib/db/index.ts).
 services:
   postgres:
     image: postgres:17
@@ -17,16 +16,6 @@ services:
       retries: 20
     volumes:
       - postgres-data:/var/lib/postgresql/data
-
-  neon-proxy:
-    image: ghcr.io/timowilhelm/local-neon-http-proxy:main
-    environment:
-      PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/main
-    ports:
-      - "4444:4444"
-    depends_on:
-      postgres:
-        condition: service_healthy
 
 volumes:
   postgres-data:

@@ -1,13 +1,10 @@
 # Copy to .env for local development. Never commit .env.
 # The local values below match docker-compose.yml.
 
-# Pooled connection used by the app at runtime. Locally this is the
-# Neon-compatible proxy in front of Postgres (db.localtest.me resolves to 127.0.0.1).
+# Pooled connection used by the app at runtime (db.localtest.me resolves to 127.0.0.1).
 DATABASE_URL=
 # e.g. DATABASE_URL=postgres://postgres:postgres@db.localtest.me:5432/main
-# Under `next dev` the app connects to this host's Postgres directly (the proxy is
-# slow); set LOCAL_DB_VIA_PROXY=1 to go through the proxy in dev as well.
-# LOCAL_DB_VIA_PROXY=
+# A local host is connected to directly with node-postgres (dev, tests, e2e).
 
 # Direct (unpooled) connection, used for migrations and test setup.
 DATABASE_URL_UNPOOLED=

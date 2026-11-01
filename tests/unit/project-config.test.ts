@@ -74,10 +74,10 @@ describe("AC-16 ci.yml", () => {
     expect(stepText(wf())).toContain(s);
   });
 
-  it("runs Postgres 17 and a Neon-compatible proxy as services", () => {
+  it("runs Postgres 17 as a service, with no Neon proxy (local connections are direct)", () => {
     const services = Object.values(wf().jobs).flatMap((j) => Object.values(j.services ?? {}).map((s) => s.image));
     expect(services.some((i) => i.startsWith("postgres:17"))).toBe(true);
-    expect(services.some((i) => i.includes("neon"))).toBe(true);
+    expect(services.some((i) => i.includes("neon"))).toBe(false);
   });
 
   it("orders the steps: validate/lint, then apply, then integration, then e2e", () => {

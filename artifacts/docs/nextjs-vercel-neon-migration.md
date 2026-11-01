@@ -127,7 +127,7 @@ Constraints that already exist in web3's database stay: foreign keys that block 
 | Staging domain | `staging.fibatron.com` (repo variable `STAGING_DOMAIN`) |
 | Postgres | 17 |
 | Passwords | Minimum 12 characters, no other rules |
-| Local dev database | `next dev` connects straight to the local Postgres with `pg`; tests, CI and Neon use `@neondatabase/serverless` (through the local Neon proxy when local). Added 2026-11-01: the local proxy costs ~250 ms per query |
+| Local database | Every local connection (dev, integration tests, Playwright, CI) goes straight to Postgres with `pg`; only Neon uses `@neondatabase/serverless`. Changed 2026-11-01: the local Neon proxy (~200–350 ms per query) was removed |
 
 ## O4. Target architecture
 
@@ -249,7 +249,7 @@ There's a fixed `staging` Neon branch rather than one per preview, because CI ap
 - Locally, `db:migrate` runs against `DATABASE_URL` from `.env`. Editing a migration once it has been applied to staging is not allowed; add a new one instead.
 
 ### O7.3 CI workflows
-- **`ci.yml`** runs on pushes to `main` (and on pull requests, if any are opened): `npm ci`, typecheck, lint, unit tests; gitleaks; `ariga/setup-atlas@v0`, `atlas migrate validate`; then integration tests and Playwright against `postgres` and Neon-proxy service containers after `atlas migrate apply`. (No `atlas migrate lint`: it needs Atlas Pro since v0.38; destructive changes are caught in review.)
+- **`ci.yml`** runs on pushes to `main` (and on pull requests, if any are opened): `npm ci`, typecheck, lint, unit tests; gitleaks; `ariga/setup-atlas@v0`, `atlas migrate validate`; then integration tests and Playwright against a `postgres` service container after `atlas migrate apply`. (No `atlas migrate lint`: it needs Atlas Pro since v0.38; destructive changes are caught in review.)
 - **`deploy.yml`**:
   - **`deploy-preview`** when CI succeeds on a push to `main` (`workflow_run`, checking out the tested commit), GitHub environment `staging`: (1) fail if no production deployment exists yet (Vercel auto-promotes a new project's first deployment); (2) checkout, set the git author for Vercel, `setup-node`, `npm i -g vercel`; (3) `vercel pull --environment=preview`; (4) `ariga/setup-atlas@v0`, then `ariga/atlas-action/migrate/apply@v1` with `dir: file://db/migrations`, `url: ${{ secrets.DATABASE_URL_UNPOOLED }}`, `revisions-schema: public`; (5) `vercel build`, `vercel deploy --prebuilt`; (6) alias to the staging domain through the Vercel API (`vercel alias` fails with team-scoped tokens).
   - **`deploy-production`** on `workflow_dispatch`, environment `production`: the same with `--environment=production`, migrations against the production branch, `vercel build --prod`, `vercel deploy --prebuilt --prod`.
