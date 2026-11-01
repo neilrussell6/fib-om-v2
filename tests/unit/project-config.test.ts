@@ -158,3 +158,11 @@ describe("AC-18 config files", () => {
     expect(existsSync("public/bg.jpg")).toBe(true);
   });
 });
+
+describe("vercel.json", () => {
+  // The Vercel project was created with the "Other" preset, so `vercel build` deployed no
+  // Next.js routes (every URL was NOT_FOUND). The repo pins the framework instead.
+  it("pins the framework to Next.js", () => {
+    expect(JSON.parse(read("vercel.json")).framework).toBe("nextjs");
+  });
+});
