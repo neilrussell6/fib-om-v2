@@ -226,7 +226,7 @@ Testing a script whose job is to empty the database needed its own arrangement. 
 
 ## Tasks
 
-The spec became 27 tasks. Two shared pieces come first: v1's category list and the target guard, both of which `seed-old` will reuse. Then `seed-dummy` itself, split the way the tests need it: a pure `buildDataset(seed, fromClientId)`, a `seedDummy(client, dataset)` that writes one transaction, and a thin CLI around them. A helper creates, migrates and force-drops a throwaway database for the tests, and the tests follow, one or more per acceptance criterion.
+The spec became 22 tasks, with the dataset split into seven sub-tasks. Two shared pieces come first: v1's category list and the target guard, both of which `seed-old` will reuse. Then `seed-dummy` itself, split the way the tests need it: a pure `buildDataset(seed, fromClientId)`, a `seedDummy(client, dataset)` that writes one transaction, and a thin CLI around them. A helper creates, migrates and force-drops a throwaway database for the tests, and the tests follow, one or more per acceptance criterion.
 
 Review caught a quiet flaw in the guard tests. The script reads `.env`, and Node's `loadEnvFile` fills in any variable that isn't already set. So a test that "leaves out" `FROM_CLIENT_ID` gets `1` back from the developer's `.env`, and a case missing two requirements fails on whichever rule runs first. Both still pass, without testing the rule they name. The fix has three parts: an empty value counts as unset, every case gets a complete environment with only its own rule broken and checks that rule's message, and `.env` is now read only for `--target local`. That last part also means a stale local `.env` can never mix into a staging run.
 
