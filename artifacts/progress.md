@@ -101,6 +101,8 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261101-134809 — Phase 2, step "review tasks" + "validate tasks": FAIL — `logs/03-seed-dummy/20261101-134809--task-review--FAIL.md`
 - 20261101-134809 — Phase 2, step "task revision": done — `artifacts/specs/03-seed-dummy/tasks.md` (spec also revised: `logs/03-seed-dummy/20261101-134809--spec-revision-changelog.md`)
 - 20261101-134901 — Phase 2, step "review tasks" + "validate tasks": PASS — `logs/03-seed-dummy/20261101-134901--task-review--PASS.md`
+- 20261101-134901 — Phase 2, step "commit": done — commit `d3c81b1`
+- 20261101-134901 — Phase 2, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/03-seed-dummy/20261101-134901--book-changelog.md`
 
 ## 04-custom-behaviour
 
