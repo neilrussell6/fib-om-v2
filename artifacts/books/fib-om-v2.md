@@ -236,22 +236,37 @@ The script has three layers, and the tests reach each one directly. `buildDatase
 
 The dataset is small but deliberately awkward: 37 clients, v1's 8 categories plus "Dummy All Columns" and "Dummy No Columns", 72 products, 24 dockets, 72 orders and 360 order items. Fixed rows cover the edge cases the screens have to handle: every boolean both ways, zero dimensions, non-ASCII names and a `/` in a part number, and the four combinations that decide whether the notcher feed shows an item. Everything else comes from a small seeded generator (mulberry32), so `--seed 2` gives a different but equally repeatable database.
 
-Giving the reference tables and dockets explicit ids as well as the clients turned out simpler than resolving generated ids. Products can point at category 3 directly. The rollback test (AC-5) can insert an order item with a product that doesn't exist and check that nothing was written. Explicit ids leave the sequences behind, so the script restarts them and then sets each one past its highest id:
+Giving the reference tables and dockets explicit ids as well as the clients turned out simpler than resolving generated ids. Products can point at category 3 directly. The rollback test (AC-5) can insert an order item with a product that doesn't exist and check that nothing was written. Explicit ids leave the sequences behind, so after each table the script sets its sequence one past the highest id:
 
 ```ts
 // One statement: Postgres won't truncate a table referenced by one left out.
 await c.query(`TRUNCATE ${WIPED.join(", ")} CONTINUE IDENTITY`);
-for (const t of RESTARTED) await c.query(`ALTER TABLE ${t} ALTER COLUMN id RESTART`);
 
-for (const t of ["clients", "product_categories", "product_types", "product_sizes", "product_media", "products", "delivery_dockets"] as const) {
-  await insertRows(c, t, dataset[t], true); // OVERRIDING SYSTEM VALUE
-  await c.query(`SELECT setval(pg_get_serial_sequence('${t}', 'id'), (SELECT coalesce(max(id), 1) FROM ${t}))`);
+// Explicit ids from 1; the next generated id is one past the highest (1 for an empty table).
+for (const t of EXPLICIT_IDS) {
+  await insertRows(c, t, dataset[t], true); // OVERRIDING SYSTEM VALUE, 500 rows per statement
+  await c.query(`SELECT setval(pg_get_serial_sequence('${t}', 'id'), (SELECT coalesce(max(id), 0) + 1 FROM ${t}), false)`);
 }
 ```
 
 Orders and order items are the exception, as the spec required: they take ids from sequences that are never reset, and items find their order by position in the dataset.
 
 The tests passed the first time. The full run did not. Four CRUD browser tests from the previous feature timed out, and a different four on each re-run. The Playwright trace showed nothing hanging, just every request taking one to three seconds. Timing a bare `select 1` found the cause: about 1 ms straight to Postgres, about 210 ms through the local Neon-compatible proxy. The proxy re-authenticated and opened a new connection for every query, and each page makes several queries, while the sidebar's link prefetches competed for the same proxy. The author had asked for local connections to be direct, but the earlier change had only covered `next dev`. So now every local database (dev, tests, Playwright, CI) gets node-postgres, and the proxy was removed from Docker Compose and CI. The CRUD round trips dropped from 22–31 s to 6–13 s, and the browser suite from 12 minutes to 5.5. The trade-off is that the Neon driver itself is now exercised only on staging and production. The final run had 167 unit, 125 integration and 85 browser tests, all green.
+
+## Review
+
+The review ran the script for real against a throwaway database, then went looking for ways the guard could be fooled. It found one. Neon gives every branch two hostnames: a direct one, `ep-x.…neon.tech`, and a pooled one, `ep-x-pooler.…neon.tech`. Vercel's `DATABASE_URL` is the pooled form, so that's the easy one to copy into `PRODUCTION_DB_HOST`. The guard compared hosts exactly. So if `DATABASE_URL_UNPOOLED` pointed at production's direct host by mistake, `--target staging` went straight through, and the operator would have typed "staging" to confirm wiping production. A probe confirmed it. The fix compares endpoints rather than names:
+
+```ts
+export function endpointHost(host: string): string {
+  const [first, ...rest] = host.toLowerCase().split(".");
+  return [first.replace(/-pooler$/, ""), ...rest].join(".");
+}
+```
+
+The shared guard means `seed-old` inherits it.
+
+The rest was smaller. Arguments went through Node's strict `parseArgs`, so a typo like `--sead 5` is now an error instead of a silent seed 1, and bad values print one line instead of a stack trace. A `ROLLBACK` that fails on a dropped connection no longer hides the error that caused it. Sequences are set to one past the highest id, so an empty table starts at 1, not 2. Inserts go in batches of 500 rows. The spec was also brought in line with the code, which gives the reference tables and dockets explicit ids, not just the clients. The final review passed with 189 unit, 132 integration and 85 browser tests green. One step stays open, because it can't be automated: an operator seeding staging (AC-11).
 
 ---
 

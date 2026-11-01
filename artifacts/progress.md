@@ -110,6 +110,15 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261101-171508 — Phase 3, step "run tests": PASS — `logs/03-seed-dummy/20261101-171508--tests--PASS.md`
 - 20261101-171508 — Phase 3, step "commit": done — commit `a0367d6`
 - 20261101-171508 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/03-seed-dummy/20261101-171508--book-changelog.md`
+- 20261101-173948 — Phase 4, step "review" + "PR validation": FAIL — `logs/03-seed-dummy/20261101-173948--review--FAIL.md`
+- 20261101-173948 — Phase 4, step "commit review": done — commit `e811135`
+- 20261101-173948 — Phase 4, step "request changes": done — findings 1–4 and nits a–c, author decisions in the review log
+- 20261101-174942 — Phase 4, step "revision": done — `logs/03-seed-dummy/20261101-174942--revision-changelog.md`
+- 20261101-174942 — Phase 4, step "commit revision": done — commit `c350bca`
+- 20261101-175050 — Phase 4, step "review" + "PR validation": PASS — `logs/03-seed-dummy/20261101-175050--review--PASS.md`
+- 20261101-175050 — Phase 4, step "commit review": done — commit `b7e848d`
+- 20261101-175050 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/03-seed-dummy/20261101-175050--book-changelog.md`
+- 20261101-175050 — Feature workflow complete (phases 1–4). Open: AC-11, an operator seeds staging (`--target staging` with staging's `DATABASE_URL_UNPOOLED`, `PRODUCTION_DB_HOST` and Vercel Preview's `FROM_CLIENT_ID`).
 
 ## 04-custom-behaviour
 
