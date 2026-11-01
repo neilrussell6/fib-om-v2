@@ -169,3 +169,9 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261101-221422 — Phase 1, step "spec review" + "spec validation": PASS — `logs/06-order-items-design/20261101-221422--spec-review--PASS.md`
 - 20261101-221422 — Phase 1, step "commit": done — commit `0f3a638`
 - 20261101-221452 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/06-order-items-design/20261101-221452--book-changelog.md`
+- 20261101-221557 — Phase 2, step "tasks": done — `artifacts/specs/06-order-items-design/tasks.md`
+- 20261101-222117 — Phase 2, step "review tasks" + "validate tasks": FAIL — `logs/06-order-items-design/20261101-222117--task-review--FAIL.md`
+- 20261101-222117 — Phase 2, step "task revision": done — `artifacts/specs/06-order-items-design/tasks.md`
+- 20261101-222151 — Phase 2, step "review tasks" + "validate tasks": PASS — `logs/06-order-items-design/20261101-222151--task-review--PASS.md`
+- 20261101-222151 — Phase 2, step "commit": done — commit `50d8354`
+- 20261101-222204 — Phase 2, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/06-order-items-design/20261101-222204--book-changelog.md`
