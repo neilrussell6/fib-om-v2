@@ -126,6 +126,7 @@ Constraints that already exist in web3's database stay: foreign keys that block 
 | Staging domain | `staging.fibatron.com` (repo variable `STAGING_DOMAIN`) |
 | Postgres | 17 |
 | Passwords | Minimum 12 characters, no other rules |
+| Local dev database | `next dev` connects straight to the local Postgres with `pg`; tests, CI and Neon use `@neondatabase/serverless` (through the local Neon proxy when local). Added 2026-11-01: the local proxy costs ~250 ms per query |
 
 ## O4. Target architecture
 

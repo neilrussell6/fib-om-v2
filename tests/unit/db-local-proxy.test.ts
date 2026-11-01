@@ -22,3 +22,25 @@ describe("usesLocalProxy", () => {
     expect(usesLocalProxy(url)).toBe(false);
   });
 });
+
+// Dev-only direct connection: `next dev` against a local database skips the slow local proxy.
+describe("usesDirectDevConnection", () => {
+  const local = "postgres://u:p@db.localtest.me:5432/main";
+  const neonUrl = "postgres://u:p@ep-cool-name-123456-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require";
+
+  it("connects directly under next dev with a local database", async () => {
+    const { usesDirectDevConnection } = await import("@/lib/db");
+    expect(usesDirectDevConnection({ NODE_ENV: "development", DATABASE_URL: local })).toBe(true);
+  });
+
+  it.each([
+    ["a Neon database in dev", { NODE_ENV: "development", DATABASE_URL: neonUrl }],
+    ["tests", { NODE_ENV: "test", DATABASE_URL: local }],
+    ["a production build (next start, e2e)", { NODE_ENV: "production", DATABASE_URL: local }],
+    ["the LOCAL_DB_VIA_PROXY=1 opt-out", { NODE_ENV: "development", DATABASE_URL: local, LOCAL_DB_VIA_PROXY: "1" }],
+    ["no DATABASE_URL", { NODE_ENV: "development" }],
+  ])("keeps the Neon driver for %s", async (_, env) => {
+    const { usesDirectDevConnection } = await import("@/lib/db");
+    expect(usesDirectDevConnection(env)).toBe(false);
+  });
+});

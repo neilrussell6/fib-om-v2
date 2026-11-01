@@ -5,6 +5,9 @@
 # Neon-compatible proxy in front of Postgres (db.localtest.me resolves to 127.0.0.1).
 DATABASE_URL=
 # e.g. DATABASE_URL=postgres://postgres:postgres@db.localtest.me:5432/main
+# Under `next dev` the app connects to this host's Postgres directly (the proxy is
+# slow); set LOCAL_DB_VIA_PROXY=1 to go through the proxy in dev as well.
+# LOCAL_DB_VIA_PROXY=
 
 # Direct (unpooled) connection, used for migrations and test setup.
 DATABASE_URL_UNPOOLED=
