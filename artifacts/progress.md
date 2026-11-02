@@ -230,3 +230,9 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261102-152730 — Phase 1, step "spec revision" (non-blocking item): done — `logs/08-create-dialogs/20261102-152730--spec-revision-changelog.md`
 - 20261102-152730 — Phase 1, step "commit": done — commit `a02e909`
 - 20261102-152730 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/08-create-dialogs/20261102-152730--book-changelog.md`
+- 20261102-153733 — Phase 2, step "tasks": done — `artifacts/specs/08-create-dialogs/tasks.md`
+- 20261102-160021 — Phase 2, step "review tasks" + "validate tasks": FAIL — `logs/08-create-dialogs/20261102-160021--task-review--FAIL.md`
+- 20261102-160021 — Phase 2, step "task revision": done — `artifacts/specs/08-create-dialogs/tasks.md`
+- 20261102-160101 — Phase 2, step "review tasks" + "validate tasks": PASS — `logs/08-create-dialogs/20261102-160101--task-review--PASS.md`
+- 20261102-160101 — Phase 2, step "commit": done — commit `eddc206`
+- 20261102-160101 — Phase 2, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/08-create-dialogs/20261102-160101--book-changelog.md`
