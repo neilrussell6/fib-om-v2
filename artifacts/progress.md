@@ -219,3 +219,14 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261102-122804 — Phase 4, step "commit review": done — commit `ae93a87`
 - 20261102-122804 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/07-list-panels/20261102-122804--book-changelog.md`
 - 20261102-122804 — Phase 4: feature workflow complete for 07-list-panels
+
+## 08-create-dialogs
+
+- 20261102-123259 — Phase 1, step "research": done — `artifacts/specs/08-create-dialogs/research.md`
+- 20261102-123259 — Phase 1, step "spec": done — `artifacts/specs/08-create-dialogs/spec.md`
+- 20261102-152411 — Phase 1, step "spec review" + "spec validation": FAIL — `logs/08-create-dialogs/20261102-152411--spec-review--FAIL.md`
+- 20261102-152411 — Phase 1, step "spec revision": done — `logs/08-create-dialogs/20261102-152411--spec-revision-changelog.md`
+- 20261102-152730 — Phase 1, step "spec review" + "spec validation": PASS (with fix) — `logs/08-create-dialogs/20261102-152730--spec-review--PASS.md`
+- 20261102-152730 — Phase 1, step "spec revision" (non-blocking item): done — `logs/08-create-dialogs/20261102-152730--spec-revision-changelog.md`
+- 20261102-152730 — Phase 1, step "commit": done — commit `a02e909`
+- 20261102-152730 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/08-create-dialogs/20261102-152730--book-changelog.md`
