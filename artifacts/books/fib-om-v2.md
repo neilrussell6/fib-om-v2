@@ -443,3 +443,32 @@ The dialog lives in the URL as `?new=1`, and it follows the history rules spec 0
 The checklist runs bottom-up in six groups. Config and theme come first: each resource's create description, the "Add …" label, and the dialog's design tokens with their contrast pairs. Next is the history change, where the "opened from the list" marker becomes a list of URLs, one per open layer, and anything malformed or left over from the old single-string format counts as empty. Then come the shared parts: an "(optional)" hint on the existing field control, the Quantity stepper, the dialog frame on the Base UI dialog primitive, a generic create form that any resource can drop into it, and the Order Items body with its read-only Size. Only then do the list pages change, turning "New …" into a `?new=1` link and rendering the dialog. Tests close the checklist, with one e2e test per acceptance criterion.
 
 Review caught that the new marker format would break three of spec 07's unit tests. They checked the raw stored value rather than the behaviour, so they would fail even though nothing they cared about had changed. Because tests are only edited with the author's say-so, the checklist now carries an explicit, approved task to change just those three assertions. Review also pinned down the two existing e2e tests that click "New …" and expect the create page, in place of a guess at the wrong files. It also split a muddled task into two clear rules about which URL parameters survive: panels drop `new`, and the dialog drops only `new`, so an open panel is never lost when the dialog closes.
+
+## Implementation
+
+The build began with the piece everything else leans on: history. Spec 07's "opened from the list" marker became a list of URLs, one per open layer, and `closePanel` learned a simple rule for keeping it tidy. After any close, only the entry for the layer you land on survives:
+
+```ts
+export function closePanel(router: PanelRouter, baseHref: string, { saved }: { saved: boolean }): void {
+  const list = read();
+  const marked = list.includes(normalise(currentUrl()));
+  const base = normalise(baseHref);
+  write(list.filter((x) => x === base));
+  if (!marked) {
+    router.replace(baseHref, { scroll: false });
+    if (saved) router.refresh();
+    return;
+  }
+  // Going back restores the cached list from before the save, so refresh once back there.
+  if (saved) afterBack(() => router.refresh());
+  router.back();
+}
+```
+
+Closing a dialog that sits over a panel lands on the panel's URL, so the panel keeps its entry. Closing the panel afterwards lands on the bare list, so nothing is left behind. `openPanel` gained a `key` parameter, which lets the "New …" button open the dialog as a new layer even when a panel's `item` is already in the URL.
+
+The dialog itself splits the same way the panels did. `CreateDialog` is the frame: the design's overlay, header, scrolling body and footer, the "Discard changes?" check, and focus moving in on open and back to the "New …" button on close. A `useCreateForm` hook holds what every body shares: the create page's schema, defaults and Server Action, a guard so a double click submits once, and the three outcomes of a successful Add. Create another resets the form and keeps whatever the body asks it to keep. A new docket replaces the dialog's URL with its own page. Everything else closes as a saved panel does. `RecordCreateForm` lays out any resource's fields with that hook, and the Order Items form adds its read-only Size and the new Quantity stepper on top of it. Below 1024px, an open panel's sheet isn't removed while the dialog is up. It just renders nothing while staying mounted, so it keeps both its unsaved edits and its place in history.
+
+One design colour didn't survive contact with the contrast checks. The "(optional)" grey from the mock-up reaches only 3.7:1 on white, so the hint uses the darker grey spec 06 had already chosen for the same shade.
+
+The full run then turned up one old test with an out-of-date assumption. Spec 02's duplicate-id test moves between forms and then looks for the single visible "Name" field on the page. Behind the dialog, the list's Name filter is still on screen, so it found two. The app was doing what the spec asked, so with the author's approval the lookup was narrowed to the dialog. The final run passed everything: 462 unit and integration tests and 201 end-to-end tests.
