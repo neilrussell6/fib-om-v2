@@ -134,22 +134,26 @@ test("AC-11 list text filters match anywhere, case-insensitively", async ({ page
   await expect(page.getByRole("row").filter({ hasText: fx.names.client })).toHaveCount(1);
 });
 
-test("Review 02 finding 3: a row's identifying cell is a keyboard-reachable link to its detail page", async ({ page }) => {
+// Spec 07 AC-1 supersedes spec 02's "rows open the detail page, each row has an Edit action":
+// the title cell is a keyboard-reachable link that opens the edit panel.
+test("Review 02 finding 3 / 07 AC-1: a row's title cell is a keyboard-reachable link to its edit panel", async ({ page }) => {
   await page.goto(`/orders?order_number=${fx.names.orderNumber}`);
   const row = page.getByRole("row").filter({ hasText: fx.names.orderNumber });
   const link = row.getByRole("link", { name: fx.names.orderNumber, exact: true });
-  await expect(link).toHaveAttribute("href", `/orders/${fx.orderId}`);
+  await expect(link).toHaveAttribute("href", new RegExp(`/orders\\?.*item=${fx.orderId}$`));
   await link.focus();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(new RegExp(`/orders/${fx.orderId}$`));
+  await expect(page).toHaveURL(new RegExp(`/orders\\?.*item=${fx.orderId}$`));
+  await expect(page.getByRole("region", { name: "Edit order" })).toBeVisible();
 });
 
-test("AC-6 rows open the detail page and each row has an Edit action", async ({ page }) => {
+test("AC-6 / 07 AC-1 rows open the edit panel and there is no Edit column", async ({ page }) => {
   await page.goto(`/clients?name=${encodeURIComponent(fx.names.client)}`);
   const row = page.getByRole("row").filter({ hasText: fx.names.client });
-  await expect(row.getByRole("link", { name: "Edit" })).toHaveAttribute("href", `/clients/${fx.clientId}/edit`);
-  await row.getByRole("cell").first().click();
-  await expect(page).toHaveURL(new RegExp(`/clients/${fx.clientId}$`));
+  await expect(row.getByRole("link", { name: "Edit", exact: true })).toHaveCount(0);
+  await row.getByRole("cell").last().click();
+  await expect(page).toHaveURL(new RegExp(`/clients\\?.*item=${fx.clientId}$`));
+  await expect(page.getByRole("region", { name: "Edit client" })).toBeVisible();
 });
 
 test("Review 02 finding 1: invalid filter values in the URL don't break the list", async ({ page }) => {

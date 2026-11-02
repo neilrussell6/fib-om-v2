@@ -1,6 +1,6 @@
 import { query } from "@/lib/db";
 import { type FilterSql, QUERIES, type QueryConfig } from "@/lib/db/queries";
-import { getResource, isResourceKey, ORDER_STATUS, type ResourceKey } from "@/lib/resources";
+import { getResource, isResourceKey, type ResourceKey } from "@/lib/resources";
 
 export const PAGE_SIZES = [10, 25, 50, 100] as const;
 export const DEFAULT_PAGE_SIZE = 25;
@@ -14,7 +14,7 @@ export function normalisePageSize(n: unknown): number {
 
 export type ListParams = {
   filters?: Record<string, string | undefined>;
-  /** Order-status tab (spec 06): only for resources with `list.statusTabs`; unknown values mean All. */
+  /** Status tab (spec 06/07): only for resources with `list.statusTabs`; unknown values mean All. */
   status?: string;
   sort?: string;
   dir?: "asc" | "desc";
@@ -99,10 +99,12 @@ function filterWhere(key: ResourceKey, filters: Record<string, string | undefine
   return { where, values };
 }
 
-const STATUS_VALUES = ORDER_STATUS.map((o) => o.value);
-
-function requireStatusTabs(key: ResourceKey): void {
-  if (!getResource(key).list.statusTabs) throw new UnknownKeyError(`No status tabs on ${key}`);
+/** The resource's status column, enum type and allowed values; throws for a resource without tabs (spec 07). */
+function statusConfig(key: ResourceKey): { column: string; enumType: string; values: string[] } {
+  const tabs = getResource(key).list.statusTabs;
+  const col = queryConfig(key).statusColumn;
+  if (!tabs || !col) throw new UnknownKeyError(`No status tabs on ${key}`);
+  return { ...col, values: tabs.options.map((o) => o.value) };
 }
 
 /**
@@ -114,10 +116,10 @@ export async function listRecords(key: ResourceKey, params: ListParams): Promise
   const ui = getResource(key);
   const { where, values } = filterWhere(key, params.filters ?? {});
   if (params.status !== undefined) {
-    requireStatusTabs(key);
-    if (STATUS_VALUES.includes(params.status)) {
+    const st = statusConfig(key);
+    if (st.values.includes(params.status)) {
       values.push(params.status);
-      where.push(`order_status = $${values.length}::order_status`);
+      where.push(`${st.column} = $${values.length}::${st.enumType}`);
     }
   }
 
@@ -144,20 +146,20 @@ export async function listRecords(key: ResourceKey, params: ListParams): Promise
 }
 
 /**
- * Rows per order status under the list's other filters, ignoring the selected
- * status tab (spec 06). Every status is present, with 0 when it has no rows.
+ * Rows per status under the list's other filters, ignoring the selected
+ * status tab (spec 06, any status column since spec 07). Every status is present, with 0 when it has no rows.
  */
 export async function countByStatus(key: ResourceKey, filters: Record<string, string | undefined>): Promise<Record<string, number>> {
-  requireStatusTabs(key);
+  const st = statusConfig(key);
   const cfg = queryConfig(key);
   const { where, values } = filterWhere(key, filters);
-  const rows = await query<{ order_status: string; n: number }>(
-    `SELECT order_status::text, count(*)::int AS n FROM ${cfg.source}
+  const rows = await query<{ status: string; n: number }>(
+    `SELECT ${st.column}::text AS status, count(*)::int AS n FROM ${cfg.source}
      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-     GROUP BY order_status`,
+     GROUP BY ${st.column}`,
     values,
   );
-  const counts: Record<string, number> = Object.fromEntries(STATUS_VALUES.map((s) => [s, 0]));
-  for (const r of rows) counts[r.order_status] = Number(r.n);
+  const counts: Record<string, number> = Object.fromEntries(st.values.map((s) => [s, 0]));
+  for (const r of rows) counts[r.status] = Number(r.n);
   return counts;
 }

@@ -38,12 +38,13 @@ describe("06 AC-2 palette", () => {
     });
   });
 
-  it("has a status colour pair for each order status", async () => {
+  it("has a status colour pair for each order and docket status", async () => {
     const { statusColors } = await import("@/lib/theme/palette");
     expect(statusColors).toEqual({
       new: { bg: "#e8eef8", fg: "#2b4f8a" },
       complete: { bg: "#e3f2ea", fg: "#1f6b45" },
       archived: { bg: "#eef0f0", fg: "#5e686d" },
+      current: { bg: "#e8eef8", fg: "#2b4f8a" }, // spec 07: the docket Current pill reuses New
     });
   });
 });
@@ -67,6 +68,7 @@ describe("06 AC-2 contrast", () => {
     "status pill new",
     "status pill complete",
     "status pill archived",
+    "status pill current",
   ];
 
   it("lists every body-size pair the design uses", async () => {
@@ -83,7 +85,7 @@ describe("06 AC-2 contrast", () => {
 
   it("the status pills use the statusColors values", async () => {
     const { contrastPairs, statusColors } = await import("@/lib/theme/palette");
-    for (const s of ["new", "complete", "archived"] as const) {
+    for (const s of ["new", "complete", "archived", "current"] as const) {
       const pair = contrastPairs.find((p) => p.name === `status pill ${s}`);
       expect(pair).toMatchObject({ foreground: statusColors[s].fg, background: statusColors[s].bg });
     }

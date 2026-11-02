@@ -23,7 +23,7 @@ type Case = {
   createGoesToDetail?: boolean;
   /** Text that identifies the row in the list when the identifying field isn't a list column. */
   rowText?: () => string;
-  /** Spec 06: a row click opens the edit panel, not the detail page. */
+  /** Spec 06: a row click opens the edit panel, not the detail page (every list since spec 07). */
   panel?: boolean;
 };
 
@@ -149,15 +149,12 @@ for (const c of cases) {
     const row = page.getByRole("row").filter({ hasText: listText }).first();
     await expect(row).toBeVisible();
 
-    // Detail (row click on the record's own cell; some first cells are links to other records)
-    await row.getByRole("cell", { name: listText, exact: true }).click();
-    if (c.panel) {
-      // Spec 06 AC-16: the row opens the edit panel; the detail page is still reachable by URL.
-      await expect(page).toHaveURL(/[?&]item=\d+/);
-      await expect(page.getByRole("region", { name: "Edit order item" })).toBeVisible();
-      const id = new URL(page.url()).searchParams.get("item");
-      await page.goto(`${c.path}/${id}`);
-    }
+    // Detail (row click on the record's own cell; some first cells are links to other records).
+    // Spec 06 AC-16 / spec 07 AC-1: the row opens the edit panel; the detail page is still reachable by URL.
+    await row.getByRole("cell", { name: listText, exact: true }).last().click();
+    await expect(page).toHaveURL(/[?&]item=\d+/);
+    await expect(page.getByRole("region", { name: `Edit ${c.singular.toLowerCase()}` })).toBeVisible();
+    await page.goto(`${c.path}/${new URL(page.url()).searchParams.get("item")}`);
     await expect(page).toHaveURL(new RegExp(`${c.path}/\\d+$`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(c.singular);
     await expect(page.getByRole("main")).toContainText(created);
@@ -172,12 +169,10 @@ for (const c of cases) {
     const editedRow = page.getByRole("row").filter({ hasText: c.rowText?.() ?? edited }).first();
     await expect(editedRow).toBeVisible();
 
-    // Delete
-    if (c.panel) {
-      await editedRow.getByRole("cell", { name: c.rowText!(), exact: true }).click();
-      await expect(page).toHaveURL(/[?&]item=\d+/);
-      await page.goto(`${c.path}/${new URL(page.url()).searchParams.get("item")}/edit`);
-    } else await editedRow.getByRole("link", { name: "Edit", exact: true }).click();
+    // Delete (from the edit page, reached by URL: panels have no Delete, spec 07).
+    await editedRow.getByRole("cell", { name: c.rowText?.() ?? edited, exact: true }).last().click();
+    await expect(page).toHaveURL(/[?&]item=\d+/);
+    await page.goto(`${c.path}/${new URL(page.url()).searchParams.get("item")}/edit`);
     await confirmDelete(page);
     await expectToast(page, `${c.singular} successfully deleted`);
     await expect(page).toHaveURL(new RegExp(`${c.path}(\\?.*)?$`));

@@ -63,6 +63,7 @@ export const STAGES: [name: string, label: string][] = [
 export const RESOURCES: Record<ResourceKey, ResourceUi> = {
   users: {
     key: "users", path: "/users", singular: "User", plural: "Users",
+    titleField: "name",
     fields: [
       text("name", "Name"),
       { name: "email", label: "Email", type: "email", required: true },
@@ -73,6 +74,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   clients: {
     key: "clients", path: "/clients", singular: "Client", plural: "Clients",
+    titleField: "name",
     fields: [
       text("name", "Name", { required: true }), text("full_name", "Full Name"), text("phone", "Phone"),
       text("address_shipping", "Shipping Address"), text("address_billing", "Billing Address"), text("abn", "ABN"),
@@ -92,6 +94,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   product_categories: {
     key: "product_categories", path: "/product-categories", singular: "Product Category", plural: "Product Categories",
+    titleField: "name",
     formHeading: "Columns to show on Order Items page (for this category)",
     fields: [
       text("name", "Name", { required: true }),
@@ -102,6 +105,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   product_types: {
     key: "product_types", path: "/product-types", singular: "Product Type", plural: "Product Types",
+    titleField: "name",
     fields: [text("name", "Name", { required: true }), text("code", "Code", { required: true }), num("millimetres_per_pleat", "MM per Pleat")],
     list: {
       columns: [{ key: "name", label: "Name" }, { key: "code", label: "Code" }, { key: "millimetres_per_pleat", label: "MM per Pleat" }],
@@ -112,12 +116,14 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   product_sizes: {
     key: "product_sizes", path: "/product-sizes", singular: "Product Size", plural: "Product Sizes",
+    titleField: "name",
     fields: [text("name", "Name", { required: true })],
     list: { columns: [{ key: "name", label: "Name" }], defaultSort: { key: "name", dir: "asc" }, filters: [textFilter("name", "Name")] },
   },
 
   product_media: {
     key: "product_media", path: "/product-media", singular: "Product Media", plural: "Product Media",
+    titleField: "name",
     fields: [text("name", "Name", { required: true }), text("code", "Code", { required: true }), num("pleat_spacing", "Pleat Spacing")],
     list: {
       columns: [{ key: "name", label: "Name" }, { key: "code", label: "Code" }, { key: "pleat_spacing", label: "Pleat Spacing" }],
@@ -128,6 +134,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   products: {
     key: "products", path: "/products", singular: "Product", plural: "Products",
+    titleField: "name",
     fields: [
       text("name", "Name", { required: true }),
       { name: "category_id", label: "Category", type: "reference", ref: "product_categories", required: true, display: "category_name" },
@@ -156,10 +163,11 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   delivery_dockets: {
     key: "delivery_dockets", path: "/delivery-dockets", singular: "Delivery Docket", plural: "Delivery Dockets",
+    titleField: "docket_number",
     afterCreate: "detail",
     fields: [
       { name: "to_client_id", label: "To Client", type: "reference", ref: "clients", required: true, display: "to_client_name" },
-      { name: "status", label: "Status", type: "select", options: DOCKET_STATUS, required: true, default: "current" },
+      { name: "status", label: "Status", type: "select", options: DOCKET_STATUS, required: true, default: "current", chips: true },
       text("docket_number", "Docket Number", { form: false }),
       { name: "date", label: "Date", type: "date", form: false },
       { name: "from_client_id", label: "From Client", type: "reference", ref: "clients", form: false, display: "from_client_name" },
@@ -174,19 +182,21 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
         textFilter("to_client", "To Client"),
         textFilter("docket_number", "Docket Number", false),
         ...range("created", "Created", "date"),
-        { key: "status", label: "Status", kind: "select", options: DOCKET_STATUS, alwaysShown: true },
       ],
+      // Spec 07: tabs replace the Status filter.
+      statusTabs: { key: "status", options: DOCKET_STATUS },
     },
   },
 
   orders: {
     key: "orders", path: "/orders", singular: "Order", plural: "Orders",
+    titleField: "order_number",
     fields: [
       { name: "client_id", label: "Client", type: "reference", ref: "clients", required: true, display: "client_name" },
       text("order_number", "Order Number", { required: true }),
       { name: "date", label: "Created", type: "date", form: false },
       { name: "due_date", label: "Due Date", type: "date", required: true },
-      { name: "status", label: "Status", type: "select", options: ORDER_STATUS, required: true, default: "new" },
+      { name: "status", label: "Status", type: "select", options: ORDER_STATUS, required: true, default: "new", chips: true },
       {
         name: "delivery_docket_id", label: "Delivery Docket", type: "reference", ref: "delivery_dockets",
         refFilter: { param: "clientId", from: "client_id" }, display: "delivery_docket_number",
@@ -207,14 +217,16 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
         textFilter("order_number", "Order Number"),
         ...range("due", "Due", "date"),
         ...range("created", "Created", "date"),
-        { key: "status", label: "Status", kind: "select", options: ORDER_STATUS, alwaysShown: true },
         { key: "delivery_docket", label: "Delivery Docket", kind: "reference", ref: "delivery_dockets" },
       ],
+      // Spec 07: tabs replace the Status filter.
+      statusTabs: { key: "status", options: ORDER_STATUS },
     },
   },
 
   order_items: {
     key: "order_items", path: "/order-items", singular: "Order Item", plural: "Order Items", newLabel: "New item",
+    titleField: "order_number",
     fields: [
       { name: "order_id", label: "Order", type: "reference", ref: "orders", required: true, display: "order_number" },
       { name: "product_id", label: "Product", type: "reference", ref: "products", required: true, display: "product_name" },
@@ -258,7 +270,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
         { key: "order_status", label: "Status", format: "enum", options: ORDER_STATUS },
       ],
       defaultSort: { key: "order_due_date", dir: "desc" },
-      statusTabs: true,
+      statusTabs: { key: "order_status", options: ORDER_STATUS },
       filters: [
         { key: "client", label: "Client", kind: "reference", ref: "clients", alwaysShown: true },
         { key: "order", label: "Order", kind: "reference", ref: "orders", alwaysShown: true },
@@ -288,3 +300,14 @@ export const resourceTitle = (r: ResourceUi) => r.title ?? r.plural.charAt(0) + 
 
 /** The list's create button label (spec 06). */
 export const resourceNewLabel = (r: ResourceUi) => r.newLabel ?? `New ${r.singular.toLowerCase()}`;
+
+/** The singular in sentence case, e.g. "Product category" (spec 07 panel caption and not-found toast). */
+export const singularLabel = (r: ResourceUi) => r.singular.charAt(0) + r.singular.slice(1).toLowerCase();
+
+/** The record's title for the panel heading and the title cell: its title field, or its email when blank (spec 07). */
+export function recordTitle(r: ResourceUi, row: Record<string, unknown>): string {
+  const v = row[r.titleField];
+  const text = v === null || v === undefined ? "" : String(v).trim();
+  if (text) return text;
+  return typeof row.email === "string" ? row.email : "";
+}

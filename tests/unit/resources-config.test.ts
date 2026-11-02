@@ -24,7 +24,8 @@ describe("AC-6 list defaults, filters and columns", () => {
       "orders",
       { key: "date", dir: "desc" },
       ["Client", "Order Number", "Delivery Docket", "Created", "Due", "Status"],
-      ["Client", "Order Number", "Due From", "Due To", "Created From", "Created To", "Status", "Delivery Docket"],
+      // Spec 07 AC-2: the Status filter is replaced by tabs.
+      ["Client", "Order Number", "Due From", "Due To", "Created From", "Created To", "Delivery Docket"],
     ],
     [
       "order_items",
@@ -40,7 +41,7 @@ describe("AC-6 list defaults, filters and columns", () => {
       "delivery_dockets",
       { key: "date", dir: "desc" },
       ["To Client", "Docket Number", "Date", "Status"],
-      ["To Client", "Docket Number", "Created From", "Created To", "Status"],
+      ["To Client", "Docket Number", "Created From", "Created To"], // spec 07 AC-2
     ],
   ] as const)("%s", async (key, sort, columns, filterLabels) => {
     const { RESOURCES } = await load();
@@ -50,9 +51,10 @@ describe("AC-6 list defaults, filters and columns", () => {
     expect(filters(r)).toEqual(filterLabels);
   });
 
-  it("docket status filter is always shown", async () => {
+  it("orders and dockets have no status filter (spec 07 AC-2)", async () => {
     const { RESOURCES } = await load();
-    expect(RESOURCES.delivery_dockets.list.filters.find((f) => f.key === "status")?.alwaysShown).toBe(true);
+    expect(RESOURCES.delivery_dockets.list.filters.find((f) => f.key === "status")).toBeUndefined();
+    expect(RESOURCES.orders.list.filters.find((f) => f.key === "status")).toBeUndefined();
   });
 });
 
@@ -158,11 +160,47 @@ describe("06 AC-8 list titles and New buttons", () => {
   });
 });
 
-describe("06 AC-13 status tabs", () => {
-  it("only order items declare statusTabs", async () => {
+describe("06 AC-13 / 07 AC-2 status tabs", () => {
+  it("order items, orders and delivery dockets declare statusTabs with their own column and options", async () => {
+    const { RESOURCES, ORDER_STATUS, DOCKET_STATUS } = await load();
+    const withTabs = Object.values(RESOURCES).filter((r) => r.list.statusTabs).map((r) => r.key).sort();
+    expect(withTabs).toEqual(["delivery_dockets", "order_items", "orders"]);
+    expect(RESOURCES.order_items.list.statusTabs).toEqual({ key: "order_status", options: ORDER_STATUS });
+    expect(RESOURCES.orders.list.statusTabs).toEqual({ key: "status", options: ORDER_STATUS });
+    expect(RESOURCES.delivery_dockets.list.statusTabs).toEqual({ key: "status", options: DOCKET_STATUS });
+  });
+});
+
+describe("07 title fields and chips", () => {
+  it.each([
+    ["orders", "order_number"],
+    ["delivery_dockets", "docket_number"],
+    ["order_items", "order_number"],
+    ["users", "name"],
+    ["clients", "name"],
+    ["products", "name"],
+    ["product_categories", "name"],
+    ["product_types", "name"],
+    ["product_sizes", "name"],
+    ["product_media", "name"],
+  ] as const)("%s titleField is %s and is one of its list columns", async (key, field) => {
     const { RESOURCES } = await load();
-    const withTabs = Object.values(RESOURCES).filter((r) => r.list.statusTabs).map((r) => r.key);
-    expect(withTabs).toEqual(["order_items"]);
+    expect(RESOURCES[key].titleField).toBe(field);
+    expect(RESOURCES[key].list.columns.map((c) => c.key)).toContain(field);
+  });
+
+  it("recordTitle uses the title field, falling back to the email when blank", async () => {
+    const { RESOURCES, recordTitle } = await load();
+    expect(recordTitle(RESOURCES.products, { name: "Bag", category_name: "Cat" })).toBe("Bag");
+    expect(recordTitle(RESOURCES.users, { name: "Ann", email: "a@x.io" })).toBe("Ann");
+    expect(recordTitle(RESOURCES.users, { name: "  ", email: "a@x.io" })).toBe("a@x.io");
+    expect(recordTitle(RESOURCES.users, { name: null, email: "a@x.io" })).toBe("a@x.io");
+  });
+
+  it("only the order and docket status fields render as chips", async () => {
+    const { RESOURCES } = await load();
+    const chips = Object.values(RESOURCES).flatMap((r) => r.fields.filter((f) => f.chips).map((f) => `${r.key}.${f.name}`));
+    expect(chips.sort()).toEqual(["delivery_dockets.status", "orders.status"]);
   });
 });
 

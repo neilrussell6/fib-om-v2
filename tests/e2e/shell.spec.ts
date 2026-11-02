@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import { createFixture, type Fixture, removeFixture } from "../helpers/fixtures";
+import { withDb } from "../helpers/test-db";
 
 // Signed in via the saved session (storageState). Spec 06 AC-1 – AC-7 (supersedes spec 01 AC-9 and AC-12).
 
@@ -183,6 +184,22 @@ test("06 AC-7 axe on /order-items with the panel open", async ({ page }) => {
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(results.violations.filter((v) => v.impact === "critical")).toEqual([]);
   expect(results.violations.filter((v) => v.id === "color-contrast")).toEqual([]);
+});
+
+test("07 AC-15 axe on the Orders, Delivery Dockets, Product Categories and Users panels", async ({ page }) => {
+  const userId = await withDb(async (c) => (await c.query("SELECT id FROM users WHERE email = 'e2e-staff@example.com'")).rows[0].id);
+  for (const [path, id, region] of [
+    ["/orders", fx.orderId, "Edit order"],
+    ["/delivery-dockets", fx.docketId, "Edit delivery docket"],
+    ["/product-categories", fx.categoryId, "Edit product category"],
+    ["/users", userId, "Edit user"],
+  ] as const) {
+    await page.goto(`${path}?item=${id}`);
+    await expect(page.getByRole("region", { name: region })).toBeVisible();
+    const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(results.violations.filter((v) => v.impact === "critical"), path).toEqual([]);
+    expect(results.violations.filter((v) => v.id === "color-contrast"), path).toEqual([]);
+  }
 });
 
 test("Accessibility: every control in the shell has an accessible name", async ({ page }) => {

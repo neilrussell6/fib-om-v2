@@ -1,26 +1,15 @@
 import { LinkButton } from "@/components/resource/link-button";
 import { PageHeader } from "@/components/resource/page-header";
-import { first, listParamsFromUrl, type SearchParams } from "@/components/resource/pages";
+import { NotFoundToast } from "@/components/resource/not-found-toast";
+import { first, isItemId, listParamsFromUrl, queryWithout, type SearchParams } from "@/components/resource/pages";
+import { StatusTabs } from "@/components/resource/status-tabs";
 import { FilterBar } from "@/components/resource/filter-bar";
 import { Pagination } from "@/components/resource/pagination";
 import { countByStatus, listRecords } from "@/lib/db/list-query";
 import { getOrderItemPanel } from "@/lib/order-items/panel-queries";
-import { isId } from "@/lib/order-items/stages";
 import { getResource, ORDER_STATUS, resourceNewLabel, resourceTitle } from "@/lib/resources";
-import { NotFoundToast } from "./not-found-toast";
 import { OrderItemPanel, type PanelData } from "./order-item-panel";
 import { OrderItemsTable } from "./order-items-table";
-import { StatusTabs } from "./status-tabs";
-
-/** The current URL's query without `item` (so opening and closing the panel keeps the list as it is). */
-function queryWithout(sp: Record<string, string | string[] | undefined>, drop: string): string {
-  const params = new URLSearchParams();
-  for (const [k, v] of Object.entries(sp)) {
-    if (k === drop || v === undefined) continue;
-    for (const x of Array.isArray(v) ? v : [v]) params.append(k, x);
-  }
-  return params.toString();
-}
 
 /**
  * The Order Items list (spec 06): status tabs with counts, the design's columns,
@@ -36,9 +25,9 @@ export async function OrderItemsListPage({ searchParams }: { searchParams: Searc
   const [result, counts, panel] = await Promise.all([
     listRecords("order_items", { ...params, status: status || undefined }),
     countByStatus("order_items", params.filters),
-    itemParam && isId(itemParam) ? getOrderItemPanel(itemParam) : Promise.resolve(null),
+    isItemId(itemParam) ? getOrderItemPanel(itemParam) : Promise.resolve(null),
   ]);
-  const notFound = Boolean(itemParam && isId(itemParam) && !panel);
+  const notFound = isItemId(itemParam) && !panel;
   const baseQuery = queryWithout(sp, "item");
 
   return (
@@ -49,7 +38,7 @@ export async function OrderItemsListPage({ searchParams }: { searchParams: Searc
             {resourceNewLabel(ui)}
           </LinkButton>
         </PageHeader>
-        <StatusTabs counts={counts} active={status} />
+        <StatusTabs counts={counts} active={status} options={ORDER_STATUS} />
         <FilterBar filters={ui.list.filters} />
         <OrderItemsTable
           columns={ui.list.columns}
@@ -63,7 +52,7 @@ export async function OrderItemsListPage({ searchParams }: { searchParams: Searc
         <Pagination total={result.total} page={result.page} pageSize={result.pageSize} />
       </div>
       {panel ? <OrderItemPanel key={String(panel.id)} data={panel as PanelData} baseQuery={baseQuery} activeStatus={status} /> : null}
-      {notFound ? <NotFoundToast /> : null}
+      {notFound ? <NotFoundToast label="Order item" /> : null}
     </div>
   );
 }

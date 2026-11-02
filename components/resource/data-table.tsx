@@ -9,6 +9,8 @@ import { useMemo } from "react";
 import type { ColumnDef } from "@/lib/resources/types";
 import { cn } from "@/lib/utils";
 import { formatValue } from "./format";
+import { openPanel } from "./panel/history";
+import { itemHref } from "./panel/saved-toast";
 
 export type Row = Record<string, unknown>;
 
@@ -21,9 +23,10 @@ const LINK = "text-primary no-underline underline-offset-2 hover:text-primary-ho
 /**
  * Server-rendered list table (spec 02, restyled in spec 06): sortable headers
  * (a second click toggles direction), sticky header row, no bulk selection.
- * By default a row click opens the detail page and each row has an Edit link;
- * with `onRowOpen` (order items) a row click calls it instead and there is no
- * Edit column. Sorting and paging happen on the server.
+ * With `panel` set (every list since spec 07) a row click, or the title cell's
+ * link, opens the record's edit panel (`?item=`) and there is no Edit column.
+ * Without it, a row click opens the detail page and each row has an Edit link.
+ * Sorting and paging happen on the server.
  */
 export function DataTable({
   columns,
@@ -31,7 +34,7 @@ export function DataTable({
   path,
   sort,
   dir,
-  onRowOpen,
+  panel,
   selectedId,
   optionalColumns = [],
   renderCell = {},
@@ -42,7 +45,8 @@ export function DataTable({
   path: string;
   sort: string;
   dir: "asc" | "desc";
-  onRowOpen?: (id: string) => void;
+  /** Click-to-edit (spec 07): the title column, its text (with fallbacks), and the list query without `item`. */
+  panel?: { titleKey: string; title: (row: Row) => string; baseQuery: string; linkClassName?: string };
   selectedId?: string | null;
   /** Columns that get the `col-optional` class (hidden beside the order-item panel). */
   optionalColumns?: string[];
@@ -53,9 +57,9 @@ export function DataTable({
   const router = useRouter();
   const [, setQuery] = useQueryStates({ sort: parseAsString, dir: parseAsString, page: parseAsString }, { shallow: false });
 
-  // The record's own identifying cell: the first column that doesn't link elsewhere.
-  // It's a real link, so keyboard users can open the detail page (review 02, finding 3).
-  const primaryKey = columns.find((c) => !c.link)?.key;
+  // The record's own identifying cell: the title column with a panel (spec 07), otherwise the
+  // first column that doesn't link elsewhere. It's a real link, so keyboard users can open it.
+  const primaryKey = panel ? panel.titleKey : columns.find((c) => !c.link)?.key;
 
   const tableColumns = useMemo(
     () =>
@@ -65,6 +69,25 @@ export function DataTable({
             id: c.key,
             header: c.label,
             cell: ({ row }) => {
+              if (panel && c.key === primaryKey) {
+                const id = String(row.original.id);
+                const href = itemHref(path, panel.baseQuery, id);
+                return (
+                  <Link
+                    href={href}
+                    scroll={false}
+                    data-item-link={id}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openPanel(router, href);
+                    }}
+                    className={panel.linkClassName ?? cn(LINK, "font-medium")}
+                  >
+                    {panel.title(row.original) || "(blank)"}
+                  </Link>
+                );
+              }
               const custom = renderCell[c.key];
               if (custom) return custom(row.original);
               const text = formatValue(row.original[c.key], c.format, c.options);
@@ -87,7 +110,7 @@ export function DataTable({
           }),
         ),
       ),
-    [columns, path, primaryKey, renderCell],
+    [columns, path, primaryKey, renderCell, panel, router],
   );
 
   // Sorting and paging are done by the server; the table only renders the page it was given.
@@ -100,7 +123,7 @@ export function DataTable({
 
   const align = (key: string) => (columns.find((c) => c.key === key)?.align === "right" ? "text-right tabular-nums" : "text-left");
   const optional = (key: string) => (optionalColumns.includes(key) ? "col-optional" : "");
-  const showEdit = !onRowOpen;
+  const showEdit = !panel;
 
   return (
     <div className="min-h-0 flex-1 overflow-auto print:overflow-visible">
@@ -150,8 +173,8 @@ export function DataTable({
               return (
                 <tr
                   key={id}
-                  onClick={() => (onRowOpen ? onRowOpen(id) : router.push(href))}
-                  aria-selected={onRowOpen ? selected : undefined}
+                  onClick={() => (panel ? openPanel(router, itemHref(path, panel.baseQuery, id)) : router.push(href))}
+                  aria-selected={panel ? selected : undefined}
                   className={cn(
                     "h-12 cursor-pointer hover:bg-row-hover",
                     selected && "bg-row-selected shadow-[inset_3px_0_0_var(--primary)] hover:bg-row-selected",

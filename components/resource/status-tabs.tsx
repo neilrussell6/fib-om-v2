@@ -2,17 +2,17 @@
 
 import { parseAsString, useQueryStates } from "nuqs";
 import { useRef } from "react";
-import { ORDER_STATUS } from "@/lib/resources";
+import type { Option } from "@/lib/resources";
 import { cn } from "@/lib/utils";
 
-const TABS = [{ value: "", label: "All" }, ...ORDER_STATUS];
-
 /**
- * Order-status tabs with counts (spec 06): All / New / Complete / Archived.
- * Writes `?status=` (absent = All) and goes back to page 1. Arrow keys move
- * between tabs; Enter or Space selects.
+ * Status tabs with counts (spec 06, generalised in spec 07): All, then one tab
+ * per status option. Writes `?status=` (absent = All) and goes back to page 1,
+ * keeping `?item` so an open panel stays open. Arrow keys move between tabs;
+ * Enter or Space selects.
  */
-export function StatusTabs({ counts, active }: { counts: Record<string, number>; active: string }) {
+export function StatusTabs({ counts, active, options }: { counts: Record<string, number>; active: string; options: Option[] }) {
+  const TABS = [{ value: "", label: "All" }, ...options];
   const [, setQuery] = useQueryStates({ status: parseAsString, page: parseAsString, item: parseAsString }, { shallow: false });
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const total = Object.values(counts).reduce((a, b) => a + b, 0);

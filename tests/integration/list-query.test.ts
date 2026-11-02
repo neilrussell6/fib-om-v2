@@ -119,10 +119,8 @@ describe("Review 02 finding 1: invalid filter values are ignored, not sent to Po
     ["orders", { created_from: "abc" }],
     ["orders", { created_to: "2026-02-30" }],
     ["orders", { client: "abc" }],
-    ["orders", { status: "approved" }],
     ["order_items", { height_from: "x" }],
     ["order_items", { width_to: "99999999999" }],
-    ["delivery_dockets", { status: "nope" }],
     ["products", { type: "1; DROP TABLE products" }],
   ] as const)("%s %j lists unfiltered for that key", async (key, filters) => {
     const { listRecords } = await load();
@@ -131,9 +129,18 @@ describe("Review 02 finding 1: invalid filter values are ignored, not sent to Po
     expect(filtered.total).toBe(unfiltered.total);
   });
 
+  // Spec 07: status on orders and dockets is the list's status tab (`status`), no longer a filter key.
+  it.each([
+    ["orders", "approved"],
+    ["delivery_dockets", "nope"],
+  ] as const)("%s status %j lists unfiltered", async (key, status) => {
+    const { listRecords } = await load();
+    expect((await listRecords(key, { status })).total).toBe((await listRecords(key, {})).total);
+  });
+
   it("valid values still filter", async () => {
     const { listRecords } = await load();
-    const r = await listRecords("orders", { filters: { client: String(fx.clientId), status: "new" } });
+    const r = await listRecords("orders", { filters: { client: String(fx.clientId) }, status: "new" });
     expect(r.rows.map((x) => Number(x.client_id))).toEqual(r.rows.map(() => fx.clientId));
   });
 });

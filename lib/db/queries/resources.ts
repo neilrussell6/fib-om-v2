@@ -28,7 +28,12 @@ export type QueryConfig = {
   filters: Record<string, FilterSql>;
   /** Reference-combobox options: label expression, extra conditions, order. */
   options: { source: string; label: string; orderBy: string; byClientColumn?: string };
+  /** The status tabs' column and enum type (spec 07): the server-side allowlist for `status`. */
+  statusColumn?: { column: string; enumType: string };
 };
+
+/** Days until a due-date column, against today in the app's time zone (negative = overdue; spec 06/07). */
+const dueInDays = (column: string) => `${column} - (now() AT TIME ZONE '${APP_TIME_ZONE}')::date AS due_in_days`;
 
 const contains = (column: string): FilterSql => ({ kind: "contains", column });
 const eq = (column: string, cast?: string): FilterSql => ({ kind: "eq", column, cast });
@@ -132,14 +137,15 @@ export const QUERIES: Record<ResourceKey, QueryConfig> = {
       to_client: contains("to_client_name"),
       docket_number: contains("docket_number"),
       ...between("created", "date", "date"),
-      status: eq("status", "docket_status"),
     },
     options: { source: "delivery_dockets_v", label: "docket_number", orderBy: "id DESC", byClientColumn: "to_client_id" },
+    statusColumn: { column: "status", enumType: "docket_status" },
   },
   orders: {
     table: "orders",
     source: "orders_v",
-    select: "*",
+    // Spec 07: the relative Due line, as on order items.
+    select: `*, ${dueInDays("due_date")}`,
     writable: ["client_id", "order_number", "due_date", "status", "delivery_docket_id"],
     sorts: {
       client_name: "client_name", order_number: "order_number", delivery_docket_number: "delivery_docket_number",
@@ -150,16 +156,16 @@ export const QUERIES: Record<ResourceKey, QueryConfig> = {
       order_number: contains("order_number"),
       ...between("due", "due_date", "date"),
       ...between("created", "date", "date"),
-      status: eq("status", "order_status"),
       delivery_docket: eq("delivery_docket_id", "bigint"),
     },
     options: { source: "orders_v", label: "order_number || ' · ' || client_name", orderBy: "(status = 'new') DESC, date DESC, id DESC" },
+    statusColumn: { column: "status", enumType: "order_status" },
   },
   order_items: {
     table: "order_items",
     source: "order_items_v",
     // Spec 06: days until the order is due, against today in the app's time zone (negative = overdue).
-    select: `*, order_due_date - (now() AT TIME ZONE '${APP_TIME_ZONE}')::date AS due_in_days`,
+    select: `*, ${dueInDays("order_due_date")}`,
     writable: [
       "order_id", "product_id", "part_number", "quantity", "height", "width", "depth", "comment", "has_wire_header",
       "has_header_frame", "type", "number", "clip_type", "clip_position", "has_gasket", "pockets", "has_legs", "wire_mesh",
@@ -183,5 +189,6 @@ export const QUERIES: Record<ResourceKey, QueryConfig> = {
       ...between("depth", "depth", "integer"),
     },
     options: { source: "order_items_v", label: "part_number", orderBy: "id DESC" },
+    statusColumn: { column: "order_status", enumType: "order_status" },
   },
 };

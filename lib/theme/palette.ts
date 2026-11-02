@@ -34,6 +34,8 @@ export const statusColors = {
   new: { bg: "#e8eef8", fg: "#2b4f8a" },
   complete: { bg: "#e3f2ea", fg: "#1f6b45" },
   archived: { bg: "#eef0f0", fg: "#5e686d" },
+  /** Docket status (spec 07): reuses the New pair; both mean "active". */
+  current: { bg: "#e8eef8", fg: "#2b4f8a" },
 } as const;
 
 export type StatusKey = keyof typeof statusColors;
@@ -71,4 +73,5 @@ export const contrastPairs: ContrastPair[] = [
   { name: "status pill new", foreground: statusColors.new.fg, background: statusColors.new.bg },
   { name: "status pill complete", foreground: statusColors.complete.fg, background: statusColors.complete.bg },
   { name: "status pill archived", foreground: statusColors.archived.fg, background: statusColors.archived.bg },
+  { name: "status pill current", foreground: statusColors.current.fg, background: statusColors.current.bg },
 ];

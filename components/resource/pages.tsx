@@ -1,22 +1,38 @@
 import { notFound } from "next/navigation";
-import { listRecords } from "@/lib/db/list-query";
+import { countByStatus, listRecords } from "@/lib/db/list-query";
 import { getRecord } from "@/lib/db/records";
-import { getResource, resourceNewLabel, resourceTitle } from "@/lib/resources";
+import { getResource, resourceNewLabel, resourceTitle, singularLabel } from "@/lib/resources";
 import type { ResourceKey } from "@/lib/resources/types";
-import { DataTable } from "./data-table";
 import { DeleteButton } from "./delete-button";
 import { FilterBar } from "./filter-bar";
 import { formatValue } from "./format";
 import { LinkButton } from "./link-button";
+import { NotFoundToast } from "./not-found-toast";
 import { PageHeader } from "./page-header";
 import { Pagination } from "./pagination";
 import { PrintButton } from "./print-button";
+import { RecordPanel } from "./record-panel";
 import { ResourceForm } from "./resource-form";
+import { ResourceTable } from "./resource-table";
+import { StatusTabs } from "./status-tabs";
 
 export type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 type IdParams = Promise<{ id: string }>;
 
 export const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+/** A numeric record id (`?item=`), as the list pages accept it (spec 06/07). */
+export const isItemId = (v: unknown): v is string => typeof v === "string" && /^\d{1,18}$/.test(v);
+
+/** The current URL's query without `drop` (so opening and closing the panel keeps the list as it is). */
+export function queryWithout(sp: Record<string, string | string[] | undefined>, drop: string): string {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    if (k === drop || v === undefined) continue;
+    for (const x of Array.isArray(v) ? v : [v]) params.append(k, x);
+  }
+  return params.toString();
+}
 
 /** The list query's params from the URL: only the resource's own filter keys and column sort keys (spec 02). */
 export function listParamsFromUrl(resourceKey: ResourceKey, sp: Record<string, string | string[] | undefined>) {
@@ -37,21 +53,48 @@ async function recordOr404(resourceKey: ResourceKey, params: IdParams) {
   return { id, record };
 }
 
-/** List page: heading, Create, filters, table, pagination (spec 02). */
+/**
+ * List page: heading, New, filters, table, pagination (spec 02); status tabs when
+ * the resource has them, and the edit panel for `?item=<id>` (spec 07).
+ */
 export async function ResourceListPage({ resourceKey, searchParams }: { resourceKey: ResourceKey; searchParams: SearchParams }) {
   const ui = getResource(resourceKey);
-  const result = await listRecords(resourceKey, listParamsFromUrl(resourceKey, await searchParams));
+  const sp = await searchParams;
+  const params = listParamsFromUrl(resourceKey, sp);
+  const tabs = ui.list.statusTabs;
+  const statusParam = first(sp.status);
+  const status = tabs && tabs.options.some((o) => o.value === statusParam) ? statusParam! : "";
+  const itemParam = first(sp.item);
+  const [result, counts, record] = await Promise.all([
+    listRecords(resourceKey, { ...params, status: tabs ? status || undefined : undefined }),
+    tabs ? countByStatus(resourceKey, params.filters) : Promise.resolve(null),
+    isItemId(itemParam) ? getRecord(resourceKey, itemParam) : Promise.resolve(null),
+  ]);
+  const notFoundItem = isItemId(itemParam) && !record;
+  const baseQuery = queryWithout(sp, "item");
 
   return (
-    <div className="flex h-full flex-col">
-      <PageHeader title={resourceTitle(ui)}>
-        <LinkButton href={`${ui.path}/new`} variant="default">
-          {resourceNewLabel(ui)}
-        </LinkButton>
-      </PageHeader>
-      <FilterBar filters={ui.list.filters} />
-      <DataTable columns={ui.list.columns} rows={result.rows} path={ui.path} sort={result.sort} dir={result.dir} />
-      <Pagination total={result.total} page={result.page} pageSize={result.pageSize} />
+    <div className="-mx-4 -mt-7 -mb-4 flex h-[calc(100%+2.75rem)] md:-mx-8">
+      <div className="flex min-w-0 flex-1 flex-col px-4 pt-7 md:px-8">
+        <PageHeader title={resourceTitle(ui)}>
+          <LinkButton href={`${ui.path}/new`} variant="default">
+            {resourceNewLabel(ui)}
+          </LinkButton>
+        </PageHeader>
+        {tabs && counts ? <StatusTabs counts={counts} active={status} options={tabs.options} /> : null}
+        <FilterBar filters={ui.list.filters} />
+        <ResourceTable
+          resourceKey={resourceKey}
+          rows={result.rows}
+          sort={result.sort}
+          dir={result.dir}
+          baseQuery={baseQuery}
+          selectedId={record ? String(record.id) : null}
+        />
+        <Pagination total={result.total} page={result.page} pageSize={result.pageSize} />
+      </div>
+      {record ? <RecordPanel key={String(record.id)} resourceKey={resourceKey} record={record} baseQuery={baseQuery} activeStatus={status} /> : null}
+      {notFoundItem ? <NotFoundToast label={singularLabel(ui)} /> : null}
     </div>
   );
 }

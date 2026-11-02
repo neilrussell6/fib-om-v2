@@ -46,6 +46,8 @@ export type FieldDef = {
   form?: boolean;
   /** false: not on the detail page. */
   detail?: boolean;
+  /** Rendered as status chips in the edit panel (spec 07); forms keep their select. */
+  chips?: true;
 };
 
 export type ColumnFormat = "text" | "date" | "enum";
@@ -83,6 +85,8 @@ export type ResourceUi = {
   title?: string;
   /** The list's create button; defaults to `New <singular in lower case>` (spec 06). */
   newLabel?: string;
+  /** The field used as the panel heading and the title cell's link text (spec 07). */
+  titleField: string;
   fields: FieldDef[];
   /** Heading shown above the grouped fields on the form (product categories). */
   formHeading?: string;
@@ -92,7 +96,7 @@ export type ResourceUi = {
     columns: ColumnDef[];
     defaultSort: { key: string; dir: "asc" | "desc" };
     filters: FilterDef[];
-    /** Order-status tabs with counts above the list (order items only, spec 06). */
-    statusTabs?: boolean;
+    /** Status tabs with counts above the list (spec 06, generalised in spec 07): the status column and its options. */
+    statusTabs?: { key: string; options: Option[] };
   };
 };

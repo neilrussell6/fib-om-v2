@@ -64,7 +64,8 @@ export type PanelSaveResult = SaveResult & { orderStatus?: string };
 /**
  * Saves the panel (spec 06, Design → Save): the item through the allowlisted
  * writer, then — if they changed — the due date and status of the order the item
- * now belongs to, all in one transaction.
+ * now belongs to, all in one transaction. The order fields are only sent when the
+ * user changed them (spec 07 fix 1); without them the order is left untouched.
  */
 export async function saveOrderItemPanel(id: string | number, input: Record<string, unknown>): Promise<PanelSaveResult> {
   await requireSession();
@@ -79,7 +80,10 @@ export async function saveOrderItemPanel(id: string | number, input: Record<stri
 
   // Order fields never reach updateRecord; only the item's own fields do.
   const data = { ...(parsed.data as Record<string, unknown>) };
-  const order = { due_date: data.order_due_date as string, status: data.order_status as string };
+  const order =
+    data.order_due_date !== undefined && data.order_status !== undefined
+      ? { due_date: data.order_due_date as string, status: data.order_status as string }
+      : null;
   for (const k of ORDER_FIELDS) delete data[k];
 
   let orderStatus: string;
@@ -94,6 +98,7 @@ export async function saveOrderItemPanel(id: string | number, input: Record<stri
         [String(id)],
       );
       const current = rows[0] as { id: string; due_date: string; status: string };
+      if (!order) return current.status; // fix 1: the order wasn't changed in the panel
       if (current.due_date !== order.due_date || current.status !== order.status) {
         await client.query("UPDATE orders SET due_date = $1, status = $2::order_status WHERE id = $3", [order.due_date, order.status, current.id]);
       }
