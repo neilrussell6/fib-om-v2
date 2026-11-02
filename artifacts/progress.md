@@ -242,3 +242,10 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261102-165126 — Phase 3, step "run tests": PASS — `logs/08-create-dialogs/20261102-165126--tests--PASS.md`
 - 20261102-165126 — Phase 3, step "commit": done — commit `c9198fc`
 - 20261102-165126 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/08-create-dialogs/20261102-165126--book-changelog.md`
+- 20261102-173958 — Phase 4, step "review" + "PR validation": FAIL (author) — `logs/08-create-dialogs/20261102-173958--review--FAIL.md`
+- 20261102-173958 — Phase 4, step "commit review": done — commit `d6b4782`
+- 20261102-174309 — Phase 4, step "request changes" + "revision": done — `logs/08-create-dialogs/20261102-174309--revision-changelog.md` (integration/e2e not run: database down)
+- 20261102-174309 — Phase 4, step "commit revision": done — commit `7bc4b2a`
+- 20261102-174335 — Phase 4, step "review" + "PR validation": PASS (author; e2e on the revision still to run) — `logs/08-create-dialogs/20261102-174335--review--PASS.md`
+- 20261102-174335 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/08-create-dialogs/20261102-174335--book-changelog.md`
+- 20261102-174335 — Phase 4: feature workflow complete for 08-create-dialogs

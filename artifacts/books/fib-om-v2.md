@@ -472,3 +472,9 @@ The dialog itself splits the same way the panels did. `CreateDialog` is the fram
 One design colour didn't survive contact with the contrast checks. The "(optional)" grey from the mock-up reaches only 3.7:1 on white, so the hint uses the darker grey spec 06 had already chosen for the same shade.
 
 The full run then turned up one old test with an out-of-date assumption. Spec 02's duplicate-id test moves between forms and then looks for the single visible "Name" field on the page. Behind the dialog, the list's Name filter is still on screen, so it found two. The app was doing what the spec asked, so with the author's approval the lookup was narrowed to the dialog. The final run passed everything: 462 unit and integration tests and 201 end-to-end tests.
+
+## Review
+
+Review found the feature doing what the spec asked, with every acceptance criterion backed by a passing test, and one small visual defect. The hydration guard borrowed from the panels is a `<fieldset>` that disables every control until React takes over. Its class also stops those controls looking faded, so the page doesn't flicker grey on load. That class was always on, though, and in the built stylesheet it outranked the usual disabled styling. Controls that really were disabled, such as the stepper's minus at 1 or the "Adding…" button, looked perfectly clickable. The fix applies the override only before hydration, in both the dialog and the panel shell, and adds checks that both controls fade.
+
+The fix landed while the local database was down, so the author chose to commit it after lint, typecheck and unit tests alone, and to record the review as passed. The integration and end-to-end suites, including the two new opacity checks, are still to be run on that last commit once the database is back.
