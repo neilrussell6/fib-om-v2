@@ -101,7 +101,7 @@ describe("07 openPanel (switching rows)", () => {
     openPanel(r, "/clients?item=5");
     expect(r.push).toHaveBeenCalledWith("/clients?item=5", { scroll: false });
     expect(r.replace).not.toHaveBeenCalled();
-    expect(store.get(KEY)).toBe("/clients?item=5");
+    expect(JSON.parse(store.get(KEY)!)).toEqual(["/clients?item=5"]);
   });
 
   it("with a list-opened panel open, replaces and moves the marker to the new row", async () => {
@@ -112,7 +112,7 @@ describe("07 openPanel (switching rows)", () => {
     openPanel(r, "/clients?item=6");
     expect(r.replace).toHaveBeenCalledWith("/clients?item=6", { scroll: false });
     expect(r.push).toHaveBeenCalledTimes(1);
-    expect(store.get(KEY)).toBe("/clients?item=6");
+    expect(JSON.parse(store.get(KEY)!)).toEqual(["/clients?item=6"]);
     setUrl("/clients?item=6");
     closePanel(r, "/clients", { saved: false });
     expect(r.back).toHaveBeenCalledTimes(1); // back to the list, not to item 5
@@ -142,7 +142,7 @@ describe("07 clearOpenedMarker", () => {
     const { markOpenedFromList, clearOpenedMarker } = await load();
     markOpenedFromList("/clients?item=6");
     clearOpenedMarker("/clients?item=5"); // an older panel unmounting
-    expect(store.get(KEY)).toBe("/clients?item=6");
+    expect(JSON.parse(store.get(KEY)!)).toEqual(["/clients?item=6"]);
     clearOpenedMarker("/clients?item=6");
     expect(store.has(KEY)).toBe(false);
   });
@@ -151,5 +151,83 @@ describe("07 clearOpenedMarker", () => {
     const { clearOpenedMarker } = await load();
     throwing = true;
     expect(() => clearOpenedMarker("/clients?item=5")).not.toThrow();
+  });
+});
+
+describe("08 layered marker (one entry per open layer)", () => {
+  it("a dialog over a list-opened panel: closing each goes back, in turn", async () => {
+    const { openPanel, closePanel } = await load();
+    const r = router();
+    openPanel(r, "/clients?item=5");
+    setUrl("/clients?item=5");
+    openPanel(r, "/clients?item=5&new=1", "new");
+    expect(r.push).toHaveBeenLastCalledWith("/clients?item=5&new=1", { scroll: false });
+    expect(r.push).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(store.get(KEY)!)).toEqual(["/clients?item=5", "/clients?item=5&new=1"]);
+
+    setUrl("/clients?item=5&new=1");
+    closePanel(r, "/clients?item=5", { saved: false });
+    expect(r.back).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(store.get(KEY)!)).toEqual(["/clients?item=5"]);
+
+    setUrl("/clients?item=5");
+    closePanel(r, "/clients", { saved: false });
+    expect(r.back).toHaveBeenCalledTimes(2);
+    expect(r.replace).not.toHaveBeenCalled();
+    expect(store.has(KEY)).toBe(false);
+  });
+
+  it("a dialog from the list with no panel pushes and goes back", async () => {
+    const { openPanel, closePanel } = await load();
+    const r = router();
+    openPanel(r, "/clients?new=1", "new");
+    expect(r.push).toHaveBeenCalledWith("/clients?new=1", { scroll: false });
+    setUrl("/clients?new=1");
+    closePanel(r, "/clients", { saved: true });
+    expect(r.back).toHaveBeenCalledTimes(1);
+    expect(store.has(KEY)).toBe(false);
+  });
+
+  it("the dialog key doesn't count as a panel: opening a dialog over a panel pushes", async () => {
+    const { openPanel } = await load();
+    setUrl("/clients?item=5"); // a directly loaded panel
+    const r = router();
+    openPanel(r, "/clients?item=5&new=1", "new");
+    expect(r.push).toHaveBeenCalledTimes(1);
+    expect(r.replace).not.toHaveBeenCalled();
+  });
+
+  it("switching rows replaces only the panel's entry", async () => {
+    const { openPanel, markOpenedFromList } = await load();
+    markOpenedFromList("/orders?new=1"); // an unrelated entry
+    const r = router();
+    setUrl("/clients");
+    openPanel(r, "/clients?item=5");
+    setUrl("/clients?item=5");
+    openPanel(r, "/clients?item=6");
+    expect(JSON.parse(store.get(KEY)!)).toEqual(["/orders?new=1", "/clients?item=6"]);
+  });
+
+  it("clearOpenedMarker removes only its own URL", async () => {
+    const { markOpenedFromList, clearOpenedMarker } = await load();
+    markOpenedFromList("/clients?item=5");
+    markOpenedFromList("/clients?item=5&new=1");
+    clearOpenedMarker("/clients?item=5&new=1");
+    expect(JSON.parse(store.get(KEY)!)).toEqual(["/clients?item=5"]);
+  });
+
+  it.each([
+    ["the old single-string value", "/clients?item=5"],
+    ["unparsable JSON", "[oops"],
+    ["a non-array", '{"a":1}'],
+    ["non-string entries", "[1,2]"],
+  ])("treats %s as empty, so closing replaces", async (_name, raw) => {
+    const { closePanel } = await load();
+    store.set(KEY, raw);
+    setUrl("/clients?item=5");
+    const r = router();
+    closePanel(r, "/clients", { saved: false });
+    expect(r.back).not.toHaveBeenCalled();
+    expect(r.replace).toHaveBeenCalledWith("/clients", { scroll: false });
   });
 });

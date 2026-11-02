@@ -67,6 +67,7 @@ export function PanelShell({
   pending,
   onSubmit,
   closer,
+  covered = false,
   children,
 }: {
   /** Accessible name of the panel, e.g. "Edit client". */
@@ -81,6 +82,12 @@ export function PanelShell({
   pending: boolean;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   closer: PanelCloser;
+  /**
+   * The create dialog is open on top (spec 08): the panel ignores Escape, and below 1024px
+   * its sheet isn't shown, so only one modal layer is open. It stays mounted, keeping its
+   * edits and its history entry, and comes back when the dialog closes.
+   */
+  covered?: boolean;
   children: React.ReactNode;
 }) {
   const narrow = useNarrow();
@@ -118,7 +125,7 @@ export function PanelShell({
 
   // Escape closes (or asks first), unless something inside already handled it.
   useEffect(() => {
-    if (narrow) return; // the sheet handles Escape itself
+    if (narrow || covered) return; // the sheet handles Escape itself; the dialog on top owns it
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented || confirmOpen) return;
       if (document.querySelector('[data-slot="popover-content"], [role="listbox"]')) return;
@@ -126,7 +133,7 @@ export function PanelShell({
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [requestClose, confirmOpen, narrow]);
+  }, [requestClose, confirmOpen, narrow, covered]);
 
   const body = (
     <form onSubmit={onSubmit} noValidate className="flex min-h-0 flex-1 flex-col" aria-label={regionLabel.replace(/^Edit /, "")}>
@@ -196,6 +203,7 @@ export function PanelShell({
   );
 
   if (narrow) {
+    if (covered) return null;
     return (
       <Sheet open onOpenChange={(next) => (next ? null : requestClose())}>
         <SheetContent side="right" showCloseButton={false} aria-label={regionLabel} data-panel="" className="w-full gap-0 bg-surface p-0 sm:max-w-[400px]">

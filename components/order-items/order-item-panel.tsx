@@ -68,7 +68,18 @@ type OrderInfo = {
  * order's due date and status, saved together by saveOrderItemPanel. The frame,
  * closing and error handling are the shared panel's (spec 07).
  */
-export function OrderItemPanel({ data, baseQuery, activeStatus }: { data: PanelData; baseQuery: string; activeStatus: string }) {
+export function OrderItemPanel({
+  data,
+  baseQuery,
+  activeStatus,
+  covered = false,
+}: {
+  data: PanelData;
+  baseQuery: string;
+  activeStatus: string;
+  /** The create dialog is open on top (spec 08). */
+  covered?: boolean;
+}) {
   const router = useRouter();
   const idPrefix = useId();
   const [pending, startTransition] = useTransition();
@@ -169,6 +180,7 @@ export function OrderItemPanel({ data, baseQuery, activeStatus }: { data: PanelD
       pending={pending}
       onSubmit={(e) => void handleSubmit(onSubmit, (errs) => showErrors(errs))(e)}
       closer={closer}
+      covered={covered}
     >
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${idPrefix}-product_id`} className={labelClass}>

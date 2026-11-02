@@ -51,11 +51,14 @@ export function RecordPanel({
   record,
   baseQuery,
   activeStatus,
+  covered = false,
 }: {
   resourceKey: ResourceKey;
   record: Values;
   baseQuery: string;
   activeStatus: string;
+  /** The create dialog is open on top (spec 08). */
+  covered?: boolean;
 }) {
   const ui = getResource(resourceKey);
   const router = useRouter();
@@ -148,6 +151,7 @@ export function RecordPanel({
       pending={pending}
       onSubmit={(e) => void handleSubmit(onSubmit, (errs) => showErrors(errs))(e)}
       closer={closer}
+      covered={covered}
     >
       {readOnlyFields(ui).length ? (
         <div className="grid grid-cols-2 gap-3">

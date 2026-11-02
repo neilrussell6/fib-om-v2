@@ -38,7 +38,7 @@ for (const [path, title, columns, sortedBy, newLabel] of LISTS) {
     await expect(sorted).toHaveAttribute("aria-sort", /ascending|descending/);
     const create = page.getByRole("link", { name: newLabel, exact: true });
     await expect(create).toBeVisible();
-    await expect(create).toHaveAttribute("href", `${path}/new`);
+    await expect(create).toHaveAttribute("href", `${path}?new=1`);
     await expect(page.getByRole("checkbox")).toHaveCount(0);
   });
 }
@@ -175,15 +175,16 @@ test("Review 02 finding 2: no duplicate ids after client-side navigation between
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Product Types" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Product types");
   await page.getByRole("link", { name: "New product type", exact: true }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Create a Product Type");
+  await expect(page.getByRole("dialog", { name: "New product type", exact: true })).toBeVisible();
   const duplicates = await page.evaluate(() => {
     const seen = new Map<string, number>();
     for (const el of document.querySelectorAll("[id]")) seen.set(el.id, (seen.get(el.id) ?? 0) + 1);
     return [...seen].filter(([, n]) => n > 1).map(([id]) => id);
   });
   expect(duplicates).toEqual([]);
-  // Hidden preserved pages keep their own (now uniquely id'd) Name inputs; only one is visible.
-  const name = page.getByLabel("Name", { exact: true }).filter({ visible: true });
+  // Hidden preserved pages keep their own (now uniquely id'd) Name inputs; the dialog holds exactly one.
+  // Scoped to the dialog: the list's Name filter stays visible behind it (spec 08; author-approved edit).
+  const name = page.getByRole("dialog", { name: "New product type", exact: true }).getByLabel("Name", { exact: true });
   await expect(name).toHaveCount(1);
   await name.fill("x");
   await expect(name).toHaveValue("x");

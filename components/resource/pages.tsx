@@ -7,6 +7,8 @@ import type { ResourceKey } from "@/lib/resources/types";
 import { DeleteButton } from "./delete-button";
 import { FilterBar } from "./filter-bar";
 import { formatValue } from "./format";
+import { NewRecordLink } from "./create/new-record-link";
+import { RecordCreateForm } from "./create/record-create-form";
 import { LinkButton } from "./link-button";
 import { NotFoundToast } from "./not-found-toast";
 import { PageHeader } from "./page-header";
@@ -22,12 +24,15 @@ type IdParams = Promise<{ id: string }>;
 
 export const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
+/** The list's "New …" link: the list's current query plus `new=1` (spec 08). */
+export const newHref = (path: string, query: string) => `${path}?${query ? `${query}&` : ""}new=1`;
 
-/** The current URL's query without `drop` (so opening and closing the panel keeps the list as it is). */
-export function queryWithout(sp: Record<string, string | string[] | undefined>, drop: string): string {
+
+/** The current URL's query without the `drop` keys (so opening and closing a panel or dialog keeps the list as it is). */
+export function queryWithout(sp: Record<string, string | string[] | undefined>, ...drop: string[]): string {
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(sp)) {
-    if (k === drop || v === undefined) continue;
+    if (drop.includes(k) || v === undefined) continue;
     for (const x of Array.isArray(v) ? v : [v]) params.append(k, x);
   }
   return params.toString();
@@ -70,15 +75,16 @@ export async function ResourceListPage({ resourceKey, searchParams }: { resource
     isId(itemParam) ? getRecord(resourceKey, itemParam) : Promise.resolve(null),
   ]);
   const notFoundItem = isId(itemParam) && !record;
-  const baseQuery = queryWithout(sp, "item");
+  // The panel and the row links never carry `new`; the dialog closes to the URL without `new` only (spec 08).
+  const baseQuery = queryWithout(sp, "item", "new");
+  const isNew = first(sp.new) === "1";
+  const dialogQuery = queryWithout(sp, "new");
 
   return (
     <div className="-mx-4 -mt-7 -mb-4 flex h-[calc(100%+2.75rem)] md:-mx-8">
       <div className="flex min-w-0 flex-1 flex-col px-4 pt-7 md:px-8">
         <PageHeader title={resourceTitle(ui)}>
-          <LinkButton href={`${ui.path}/new`} variant="default">
-            {resourceNewLabel(ui)}
-          </LinkButton>
+          <NewRecordLink href={newHref(ui.path, dialogQuery)} label={resourceNewLabel(ui)} />
         </PageHeader>
         {tabs && counts ? <StatusTabs counts={counts} active={status} options={tabs.options} /> : null}
         <FilterBar filters={ui.list.filters} />
@@ -92,7 +98,10 @@ export async function ResourceListPage({ resourceKey, searchParams }: { resource
         />
         <Pagination total={result.total} page={result.page} pageSize={result.pageSize} />
       </div>
-      {record ? <RecordPanel key={String(record.id)} resourceKey={resourceKey} record={record} baseQuery={baseQuery} activeStatus={status} /> : null}
+      {record ? (
+        <RecordPanel key={String(record.id)} resourceKey={resourceKey} record={record} baseQuery={baseQuery} activeStatus={status} covered={isNew} />
+      ) : null}
+      {isNew ? <RecordCreateForm resourceKey={resourceKey} baseQuery={dialogQuery} /> : null}
       {notFoundItem ? <NotFoundToast label={singularLabel(ui)} /> : null}
     </div>
   );

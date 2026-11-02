@@ -202,6 +202,22 @@ test("07 AC-15 axe on the Orders, Delivery Dockets, Product Categories and Users
   }
 });
 
+test("08 AC-14 axe with the create dialog open on Order Items, Product Categories and Users", async ({ page }) => {
+  for (const [path, title] of [
+    ["/order-items", "New order item"],
+    ["/product-categories", "New product category"],
+    ["/users", "New user"],
+  ] as const) {
+    await page.goto(`${path}?new=1`);
+    const dialog = page.getByRole("dialog", { name: title, exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveAttribute("aria-modal", "true");
+    const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(results.violations.filter((v) => v.impact === "critical"), path).toEqual([]);
+    expect(results.violations.filter((v) => v.id === "color-contrast"), path).toEqual([]);
+  }
+});
+
 test("Accessibility: every control in the shell has an accessible name", async ({ page }) => {
   await page.goto("/");
   const unnamed = await page.$$eval("button, a, input, select, textarea", (els) =>

@@ -85,6 +85,8 @@ export type ResourceUi = {
   title?: string;
   /** The list's create button; defaults to `New <singular in lower case>` (spec 06). */
   newLabel?: string;
+  /** The create dialog's description under its title (spec 08). */
+  createDescription: string;
   /** The field used as the panel heading and the title cell's link text (spec 07). */
   titleField: string;
   fields: FieldDef[];

@@ -202,3 +202,24 @@ html[data-sidebar="collapsed"] .sidebar:not([data-state]) .sidebar-icon-collapse
     display: table-cell;
   }
 }
+
+/* Create dialogs (spec 08): the design's 40px controls, 13px medium labels and focus ring. */
+.create-dialog input:not([type="checkbox"]):not([type="radio"]),
+.create-dialog select,
+.create-dialog [role="combobox"] {
+  height: 40px;
+}
+.create-dialog input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+.create-dialog select:focus-visible,
+.create-dialog textarea:focus-visible,
+.create-dialog [role="combobox"]:focus-visible {
+  border-color: #0f5566;
+  box-shadow: 0 0 0 3px rgba(15, 85, 102, 0.14);
+  outline: none;
+  --tw-ring-shadow: 0 0 #0000;
+}
+.create-dialog [data-create-dialog-body] label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--label);
+}

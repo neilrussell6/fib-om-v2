@@ -91,3 +91,28 @@ describe("06 AC-2 contrast", () => {
     }
   });
 });
+
+describe("08 AC-2 / AC-14 create dialog tokens", () => {
+  it("uses the design's dialog values", async () => {
+    const { dialogTokens } = await import("@/lib/theme/palette");
+    expect(dialogTokens).toEqual({
+      overlay: "rgba(18,30,34,.42)",
+      maxWidth: 560,
+      radius: 10,
+      shadow: "0 24px 60px rgba(0,0,0,.22)",
+      footer: "#fafbfb",
+      description: "#5e686d",
+      focusBorder: "#0f5566",
+      focusRing: "0 0 0 3px rgba(15,85,102,.14)",
+    });
+  });
+
+  it("lists the dialog's text pairs, and they pass AA", async () => {
+    const { contrastPairs } = await import("@/lib/theme/palette");
+    for (const name of ["dialog description", "dialog optional hint", "dialog footer label"]) {
+      const p = contrastPairs.find((x) => x.name === name);
+      expect(p, name).toBeDefined();
+      expect(contrast(p!.foreground, p!.background), name).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});

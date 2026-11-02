@@ -40,6 +40,22 @@ export const statusColors = {
 
 export type StatusKey = keyof typeof statusColors;
 
+/**
+ * The create dialog (spec 08, from the design's "New order item" popup). The design's
+ * "(optional)" grey #7d878b fails AA on white, so the hint uses `palette.subtle`, as
+ * spec 06 did for the same grey.
+ */
+export const dialogTokens = {
+  overlay: "rgba(18,30,34,.42)",
+  maxWidth: 560,
+  radius: 10,
+  shadow: "0 24px 60px rgba(0,0,0,.22)",
+  footer: palette.surface,
+  description: palette.secondaryText,
+  focusBorder: palette.primary,
+  focusRing: "0 0 0 3px rgba(15,85,102,.14)",
+} as const;
+
 export type ContrastPair = {
   name: string;
   foreground: string;
@@ -74,4 +90,7 @@ export const contrastPairs: ContrastPair[] = [
   { name: "status pill complete", foreground: statusColors.complete.fg, background: statusColors.complete.bg },
   { name: "status pill archived", foreground: statusColors.archived.fg, background: statusColors.archived.bg },
   { name: "status pill current", foreground: statusColors.current.fg, background: statusColors.current.bg },
+  { name: "dialog description", foreground: palette.secondaryText, background: palette.background },
+  { name: "dialog optional hint", foreground: palette.subtle, background: palette.background },
+  { name: "dialog footer label", foreground: palette.label, background: palette.surface },
 ];

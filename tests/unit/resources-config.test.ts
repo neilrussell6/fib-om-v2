@@ -225,3 +225,28 @@ describe("06 AC-10 users name", () => {
     expect(first.required).toBeFalsy();
   });
 });
+
+describe("08 AC-1 / AC-2 create dialog text", () => {
+  it.each([
+    ["order_items", "Add a product line to an existing order.", "Add item"],
+    ["orders", "Start a new order for a client.", "Add order"],
+    ["delivery_dockets", "Start a docket for delivering orders to a client.", "Add delivery docket"],
+    ["products", "Add a product to the catalogue.", "Add product"],
+    ["product_categories", "Choose which columns Order Items shows for this category.", "Add product category"],
+    ["product_types", "Add a product type with its code.", "Add product type"],
+    ["product_sizes", "Add a size that products are made in.", "Add product size"],
+    ["product_media", "Add a filter media with its code.", "Add product media"],
+    ["clients", "Add a customer you take orders for.", "Add client"],
+    ["users", "Give someone access to Fibatron.", "Add user"],
+  ] as const)("%s: description and add label", async (key, description, addLabel) => {
+    const { RESOURCES, resourceAddLabel } = await load();
+    expect(RESOURCES[key].createDescription).toBe(description);
+    expect(resourceAddLabel(RESOURCES[key])).toBe(addLabel);
+  });
+
+  it("the dialog title is New <singular in lower case>", async () => {
+    const { RESOURCES, resourceCreateTitle } = await load();
+    expect(resourceCreateTitle(RESOURCES.order_items)).toBe("New order item");
+    expect(resourceCreateTitle(RESOURCES.product_categories)).toBe("New product category");
+  });
+});

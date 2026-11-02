@@ -63,6 +63,7 @@ export const STAGES: [name: string, label: string][] = [
 export const RESOURCES: Record<ResourceKey, ResourceUi> = {
   users: {
     key: "users", path: "/users", singular: "User", plural: "Users",
+    createDescription: "Give someone access to Fibatron.",
     titleField: "name",
     fields: [
       text("name", "Name"),
@@ -74,6 +75,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   clients: {
     key: "clients", path: "/clients", singular: "Client", plural: "Clients",
+    createDescription: "Add a customer you take orders for.",
     titleField: "name",
     fields: [
       text("name", "Name", { required: true }), text("full_name", "Full Name"), text("phone", "Phone"),
@@ -94,6 +96,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   product_categories: {
     key: "product_categories", path: "/product-categories", singular: "Product Category", plural: "Product Categories",
+    createDescription: "Choose which columns Order Items shows for this category.",
     titleField: "name",
     formHeading: "Columns to show on Order Items page (for this category)",
     fields: [
@@ -105,6 +108,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   product_types: {
     key: "product_types", path: "/product-types", singular: "Product Type", plural: "Product Types",
+    createDescription: "Add a product type with its code.",
     titleField: "name",
     fields: [text("name", "Name", { required: true }), text("code", "Code", { required: true }), num("millimetres_per_pleat", "MM per Pleat")],
     list: {
@@ -116,6 +120,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   product_sizes: {
     key: "product_sizes", path: "/product-sizes", singular: "Product Size", plural: "Product Sizes",
+    createDescription: "Add a size that products are made in.",
     titleField: "name",
     fields: [text("name", "Name", { required: true })],
     list: { columns: [{ key: "name", label: "Name" }], defaultSort: { key: "name", dir: "asc" }, filters: [textFilter("name", "Name")] },
@@ -123,6 +128,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   product_media: {
     key: "product_media", path: "/product-media", singular: "Product Media", plural: "Product Media",
+    createDescription: "Add a filter media with its code.",
     titleField: "name",
     fields: [text("name", "Name", { required: true }), text("code", "Code", { required: true }), num("pleat_spacing", "Pleat Spacing")],
     list: {
@@ -134,6 +140,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   products: {
     key: "products", path: "/products", singular: "Product", plural: "Products",
+    createDescription: "Add a product to the catalogue.",
     titleField: "name",
     fields: [
       text("name", "Name", { required: true }),
@@ -163,6 +170,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   delivery_dockets: {
     key: "delivery_dockets", path: "/delivery-dockets", singular: "Delivery Docket", plural: "Delivery Dockets",
+    createDescription: "Start a docket for delivering orders to a client.",
     titleField: "docket_number",
     afterCreate: "detail",
     fields: [
@@ -190,6 +198,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   orders: {
     key: "orders", path: "/orders", singular: "Order", plural: "Orders",
+    createDescription: "Start a new order for a client.",
     titleField: "order_number",
     fields: [
       { name: "client_id", label: "Client", type: "reference", ref: "clients", required: true, display: "client_name" },
@@ -226,6 +235,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
 
   order_items: {
     key: "order_items", path: "/order-items", singular: "Order Item", plural: "Order Items", newLabel: "New item",
+    createDescription: "Add a product line to an existing order.",
     titleField: "order_number",
     fields: [
       { name: "order_id", label: "Order", type: "reference", ref: "orders", required: true, display: "order_number" },
@@ -300,6 +310,12 @@ export const resourceTitle = (r: ResourceUi) => r.title ?? r.plural.charAt(0) + 
 
 /** The list's create button label (spec 06). */
 export const resourceNewLabel = (r: ResourceUi) => r.newLabel ?? `New ${r.singular.toLowerCase()}`;
+
+/** The create dialog's title, "New <singular in lower case>" (spec 08). */
+export const resourceCreateTitle = (r: ResourceUi) => `New ${r.singular.toLowerCase()}`;
+
+/** The create dialog's primary button: the New label with "Add" in place of "New" (spec 08). */
+export const resourceAddLabel = (r: ResourceUi) => `Add ${resourceNewLabel(r).replace(/^New /, "")}`;
 
 /** The singular in sentence case, e.g. "Product category" (spec 07 panel caption and not-found toast). */
 export const singularLabel = (r: ResourceUi) => r.singular.charAt(0) + r.singular.slice(1).toLowerCase();

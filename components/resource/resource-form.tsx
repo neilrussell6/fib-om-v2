@@ -35,6 +35,7 @@ export function FieldControl({
   idPrefix,
   dependents,
   setValue,
+  optionalHint = false,
 }: {
   field: FieldDef;
   control: Control<Values>;
@@ -44,6 +45,8 @@ export function FieldControl({
   /** Fields whose options depend on this one (cleared when it changes; review 02, finding 5). */
   dependents: string[];
   setValue: UseFormSetValue<Values>;
+  /** The create dialog's style (spec 08): "(optional)" after an optional field's label instead of a * on required ones. */
+  optionalHint?: boolean;
 }) {
   const error = errorText(errors, field.name);
   const id = `${idPrefix}-${field.name}`;
@@ -75,7 +78,13 @@ export function FieldControl({
       <div className="flex items-baseline gap-1">
         <Label htmlFor={id}>{field.label}</Label>
         {/* Outside the label, so the field's accessible name is exactly its label. */}
-        {field.required ? (
+        {optionalHint ? (
+          field.required ? null : (
+            <span data-optional-for={field.name} className="text-[13px] font-normal text-subtle-foreground">
+              (optional)
+            </span>
+          )
+        ) : field.required ? (
           <span aria-hidden="true" className="text-destructive">
             *
           </span>
