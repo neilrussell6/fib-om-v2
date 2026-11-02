@@ -249,3 +249,14 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261102-174335 — Phase 4, step "review" + "PR validation": PASS (author; e2e on the revision still to run) — `logs/08-create-dialogs/20261102-174335--review--PASS.md`
 - 20261102-174335 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/08-create-dialogs/20261102-174335--book-changelog.md`
 - 20261102-174335 — Phase 4: feature workflow complete for 08-create-dialogs
+
+## 09-review-fixes
+
+- 20261102-180021 — Phase 1, step "research": done — `artifacts/specs/09-review-fixes/research.md`
+- 20261102-180021 — Phase 1, step "spec": done — `artifacts/specs/09-review-fixes/spec.md`
+- 20261102-210301 — Phase 1, step "spec review" + "spec validation": FAIL — `logs/09-review-fixes/20261102-210301--spec-review--FAIL.md`
+- 20261102-210334 — Phase 1, step "spec revision": done — `logs/09-review-fixes/20261102-210334--spec-revision-changelog.md`
+- 20261102-211524 — Phase 1, step "spec review" + "spec validation": PASS — `logs/09-review-fixes/20261102-211524--spec-review--PASS.md`
+- 20261102-211524 — Phase 1, step "spec revision" (author-requested test-pyramid section): done — `logs/09-review-fixes/20261102-211524--spec-revision-changelog.md`
+- 20261102-211806 — Phase 1, step "commit": done — commit `fc94fe6`
+- 20261102-211806 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/09-review-fixes/20261102-211806--book-changelog.md`
