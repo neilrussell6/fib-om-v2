@@ -183,3 +183,6 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261102-002229 — Phase 3, step "run tests": PASS — `logs/06-order-items-design/20261102-002229--tests--PASS.md`
 - 20261102-002229 — Phase 3, step "commit": done — commit `954362f`
 - 20261102-002256 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/06-order-items-design/20261102-002256--book-changelog.md`
+- 20261102-090312 — Phase 4, step "review" + "PR validation": PASS (author) — `logs/06-order-items-design/20261102-090312--review--PASS.md`; 3 accepted findings (1 medium, 2 low) left as follow-ups, no revision round
+- 20261102-090312 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/06-order-items-design/20261102-090312--book-changelog.md`
+- 20261102-090312 — Phase 4: feature workflow complete for 06-order-items-design
