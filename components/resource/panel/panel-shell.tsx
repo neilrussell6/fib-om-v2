@@ -103,7 +103,9 @@ export function PanelShell({
       if (!closedRef.current) clearOpenedMarker(ownUrl);
       requestAnimationFrame(() => {
         if (![...document.querySelectorAll("[data-panel]")].some(visible)) {
-          document.querySelector<HTMLElement>(`[data-item-link="${itemId}"]`)?.focus();
+          // The visible one: Next keeps recently visited routes mounted but hidden, and a hidden
+          // list can hold a link with the same id (review 07, finding 1).
+          [...document.querySelectorAll<HTMLElement>(`[data-item-link="${itemId}"]`)].find(visible)?.focus();
         }
       });
     };

@@ -1,7 +1,8 @@
 import { LinkButton } from "@/components/resource/link-button";
 import { PageHeader } from "@/components/resource/page-header";
 import { NotFoundToast } from "@/components/resource/not-found-toast";
-import { first, isItemId, listParamsFromUrl, queryWithout, type SearchParams } from "@/components/resource/pages";
+import { first, listParamsFromUrl, queryWithout, type SearchParams } from "@/components/resource/pages";
+import { isId } from "@/lib/ids";
 import { StatusTabs } from "@/components/resource/status-tabs";
 import { FilterBar } from "@/components/resource/filter-bar";
 import { Pagination } from "@/components/resource/pagination";
@@ -25,9 +26,9 @@ export async function OrderItemsListPage({ searchParams }: { searchParams: Searc
   const [result, counts, panel] = await Promise.all([
     listRecords("order_items", { ...params, status: status || undefined }),
     countByStatus("order_items", params.filters),
-    isItemId(itemParam) ? getOrderItemPanel(itemParam) : Promise.resolve(null),
+    isId(itemParam) ? getOrderItemPanel(itemParam) : Promise.resolve(null),
   ]);
-  const notFound = isItemId(itemParam) && !panel;
+  const notFound = isId(itemParam) && !panel;
   const baseQuery = queryWithout(sp, "item");
 
   return (

@@ -17,4 +17,4 @@ export function takeStageFlags(row: Record<string, unknown>): StageFlags {
   return flags;
 }
 
-export const isId = (v: unknown) => /^\d{1,18}$/.test(String(v));
+export { isId } from "@/lib/ids";

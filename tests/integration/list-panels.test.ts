@@ -171,6 +171,18 @@ describe("07 AC-16 fix 1: the order-item panel writes the order only when asked 
     if (!r.ok) expect(r.fieldErrors?.order_due_date).toBeTruthy();
   });
 
+  it.each([
+    [{ order_status: "complete" }, "order_due_date"],
+    [{ order_due_date: "2027-07-07" }, "order_status"],
+  ])("review 07 finding 2: sending only %j is a field error on %s and writes nothing", async (orderPart, missing) => {
+    const { saveOrderItemPanel } = await import("@/lib/order-items/panel-actions");
+    const before = await one("SELECT due_date::text, status::text FROM orders WHERE id = $1", [fx.orderId]);
+    const r = await saveOrderItemPanel(fx.orderItemId, await itemValues(fx.orderItemId, { quantity: "66", ...orderPart }));
+    expect(r).toEqual({ ok: false, fieldErrors: { [missing]: "Required" } });
+    expect(await one("SELECT due_date::text, status::text FROM orders WHERE id = $1", [fx.orderId])).toEqual(before);
+    expect((await one<{ quantity: number }>("SELECT quantity FROM order_items WHERE id = $1", [fx.orderItemId])).quantity).not.toBe(66);
+  });
+
   it("moving an item with Due updates only the new order", async () => {
     const { saveOrderItemPanel } = await import("@/lib/order-items/panel-actions");
     const itemId = await id(

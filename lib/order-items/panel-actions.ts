@@ -80,10 +80,11 @@ export async function saveOrderItemPanel(id: string | number, input: Record<stri
 
   // Order fields never reach updateRecord; only the item's own fields do.
   const data = { ...(parsed.data as Record<string, unknown>) };
-  const order =
-    data.order_due_date !== undefined && data.order_status !== undefined
-      ? { due_date: data.order_due_date as string, status: data.order_status as string }
-      : null;
+  const hasDue = data.order_due_date !== undefined;
+  const hasStatus = data.order_status !== undefined;
+  // The panel sends both or neither (fix 1); one without the other is an error, not a silent no-op (review 07, finding 2).
+  if (hasDue !== hasStatus) return { ok: false, fieldErrors: { [hasDue ? "order_status" : "order_due_date"]: "Required" } };
+  const order = hasDue ? { due_date: data.order_due_date as string, status: data.order_status as string } : null;
   for (const k of ORDER_FIELDS) delete data[k];
 
   let orderStatus: string;

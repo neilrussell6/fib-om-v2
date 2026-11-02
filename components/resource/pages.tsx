@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { countByStatus, listRecords } from "@/lib/db/list-query";
 import { getRecord } from "@/lib/db/records";
+import { isId } from "@/lib/ids";
 import { getResource, resourceNewLabel, resourceTitle, singularLabel } from "@/lib/resources";
 import type { ResourceKey } from "@/lib/resources/types";
 import { DeleteButton } from "./delete-button";
@@ -21,8 +22,6 @@ type IdParams = Promise<{ id: string }>;
 
 export const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-/** A numeric record id (`?item=`), as the list pages accept it (spec 06/07). */
-export const isItemId = (v: unknown): v is string => typeof v === "string" && /^\d{1,18}$/.test(v);
 
 /** The current URL's query without `drop` (so opening and closing the panel keeps the list as it is). */
 export function queryWithout(sp: Record<string, string | string[] | undefined>, drop: string): string {
@@ -68,9 +67,9 @@ export async function ResourceListPage({ resourceKey, searchParams }: { resource
   const [result, counts, record] = await Promise.all([
     listRecords(resourceKey, { ...params, status: tabs ? status || undefined : undefined }),
     tabs ? countByStatus(resourceKey, params.filters) : Promise.resolve(null),
-    isItemId(itemParam) ? getRecord(resourceKey, itemParam) : Promise.resolve(null),
+    isId(itemParam) ? getRecord(resourceKey, itemParam) : Promise.resolve(null),
   ]);
-  const notFoundItem = isItemId(itemParam) && !record;
+  const notFoundItem = isId(itemParam) && !record;
   const baseQuery = queryWithout(sp, "item");
 
   return (

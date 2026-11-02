@@ -465,6 +465,31 @@ test.describe("07 AC-14 closing, focus, links, sheet", () => {
     await expect(page).not.toHaveURL(/item=/);
   });
 
+  test("review 07 finding 1: focus returns to the visible row link when a hidden list has the same id", async ({ page }) => {
+    // A client and an order with the same id; the Orders list stays mounted (hidden) after client-side navigation.
+    const sharedId = 900_000_000 + Math.floor(Math.random() * 90_000_000);
+    await withDb(async (c) => {
+      await c.query("INSERT INTO clients (id, name) OVERRIDING SYSTEM VALUE VALUES ($1, $2)", [sharedId, `${fx.tag} Shared`]);
+      await c.query("INSERT INTO orders (id, client_id, order_number, due_date) OVERRIDING SYSTEM VALUE VALUES ($1, $2, $3, '2027-01-01')", [
+        sharedId, fx.clientId, `${fx.tag}-SHARED`,
+      ]);
+    });
+    await page.goto(`/orders?order_number=${fx.tag}-SHARED`);
+    await expect(page.locator(`[data-item-link="${sharedId}"]`)).toHaveCount(1);
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Clients" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Clients" })).toBeVisible();
+    await page.getByRole("region", { name: "Filters" }).getByLabel("Name", { exact: true }).fill(`${fx.tag} Shared`);
+    const link = rowWith(page, `${fx.tag} Shared`).getByRole("link", { name: `${fx.tag} Shared`, exact: true });
+    await expect(link).toBeVisible();
+    // The scenario: the hidden Orders list still holds a link with the same id, earlier in the DOM or not.
+    await expect(page.locator(`[data-item-link="${sharedId}"]`)).toHaveCount(2);
+    await link.click();
+    await expect(panel(page, "Edit client")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(panel(page, "Edit client")).toBeHidden();
+    await expect(link).toBeFocused();
+  });
+
   test("below 1024px the panel is a sheet", async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 800 });
     await page.goto(`/clients?item=${fx.clientId}`);
