@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { clearOpenedMarker, closePanel } from "../panel/history";
 
 const noopSubscribe = () => () => {};
@@ -122,8 +123,9 @@ export function CreateDialog({
           className="create-dialog fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-48px)] w-[calc(100%-48px)] max-w-[560px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[10px] bg-background text-foreground shadow-[0_24px_60px_rgba(0,0,0,.22)] outline-none max-sm:inset-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none"
         >
           <form onSubmit={onSubmit} noValidate className="flex min-h-0 flex-1 flex-col" aria-label={title}>
-            {/* Controls stay disabled until hydration, so nothing typed before then is lost (spec 06 fix). */}
-            <fieldset disabled={!hydrated} className="contents [&_:disabled]:opacity-100">
+            {/* Controls stay disabled until hydration, so nothing typed before then is lost (spec 06 fix).
+                Only then are they kept from looking faded; afterwards disabled controls fade as usual (review 08). */}
+            <fieldset disabled={!hydrated} className={cn("contents", !hydrated && "[&_:disabled]:opacity-100")}>
               <div className="flex items-start justify-between gap-4 border-b border-border px-6 pt-5 pb-4">
                 <div className="flex flex-col gap-1">
                   <DialogTitle render={<h2 />} className="font-sans text-xl leading-tight font-semibold tracking-[-0.01em]">

@@ -348,6 +348,7 @@ test.describe("08 AC-10 Order Items dialog", () => {
     const plus = d.getByRole("button", { name: "Increase quantity", exact: true });
     await qty.fill("1");
     await expect(minus).toBeDisabled();
+    await expect(minus).toHaveCSS("opacity", "0.5"); // review 08: disabled controls look disabled
     await plus.click();
     await expect(qty).toHaveValue("2");
     await plus.click();
@@ -500,6 +501,7 @@ test.describe("08 AC-13 saving", () => {
     });
     await d.getByRole("button", { name: "Add product size", exact: true }).dblclick();
     await expect(d.getByRole("button", { name: "Adding…", exact: true })).toBeDisabled();
+    await expect(d.getByRole("button", { name: "Adding…", exact: true })).toHaveCSS("opacity", "0.5"); // review 08
     await expect(d).toBeHidden();
     await expectToast(page, "Product Size successfully created");
     expect(await count("SELECT count(*)::int AS n FROM product_sizes WHERE name = $1", [`${fx.tag} Dbl`])).toBe(1);

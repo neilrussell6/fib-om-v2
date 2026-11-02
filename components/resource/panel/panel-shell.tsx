@@ -137,8 +137,9 @@ export function PanelShell({
 
   const body = (
     <form onSubmit={onSubmit} noValidate className="flex min-h-0 flex-1 flex-col" aria-label={regionLabel.replace(/^Edit /, "")}>
-      {/* Controls stay disabled until hydration, so nothing typed before then is lost (spec 06 fix). */}
-      <fieldset disabled={!hydrated} className="contents [&_:disabled]:opacity-100">
+      {/* Controls stay disabled until hydration, so nothing typed before then is lost (spec 06 fix).
+          Only then are they kept from looking faded; afterwards disabled controls fade as usual (review 08). */}
+      <fieldset disabled={!hydrated} className={cn("contents", !hydrated && "[&_:disabled]:opacity-100")}>
         <div className="flex flex-col gap-2 border-b border-border px-6 py-5">
           <div className="flex items-center justify-between">
             <span className={cn("text-[13px] text-muted-foreground", captionClassName)}>{caption}</span>
