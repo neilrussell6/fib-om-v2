@@ -211,3 +211,11 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261102-114028 — Phase 3, step "run tests": PASS — `logs/07-list-panels/20261102-114028--tests--PASS.md`
 - 20261102-114028 — Phase 3, step "commit": done — commit `6ab3cb2`
 - 20261102-114056 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/07-list-panels/20261102-114056--book-changelog.md`
+- 20261102-121053 — Phase 4, step "review" + "PR validation": FAIL (author) — `logs/07-list-panels/20261102-121053--review--FAIL.md`
+- 20261102-121053 — Phase 4, step "commit review": done — commit `874565c`
+- 20261102-121443 — Phase 4, step "request changes" + "revision": done — `logs/07-list-panels/20261102-121443--revision-changelog.md`
+- 20261102-121443 — Phase 4, step "commit revision": done — commit `5027d9c`
+- 20261102-122804 — Phase 4, step "review" + "PR validation": PASS (author) — `logs/07-list-panels/20261102-122804--review--PASS.md`
+- 20261102-122804 — Phase 4, step "commit review": done — commit `ae93a87`
+- 20261102-122804 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/07-list-panels/20261102-122804--book-changelog.md`
+- 20261102-122804 — Phase 4: feature workflow complete for 07-list-panels
