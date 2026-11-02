@@ -203,3 +203,11 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261102-103520 — Phase 2, step "review tasks" + "validate tasks": PASS — `logs/07-list-panels/20261102-103520--task-review--PASS.md`
 - 20261102-103520 — Phase 2, step "commit": done — commit `325b3ee`
 - 20261102-103520 — Phase 2, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/07-list-panels/20261102-103520--book-changelog.md`
+- 20261102-110808 — Phase 3, step "write tests" + "implement feature": done — `logs/07-list-panels/20261102-110808--implementation-changelog.md`
+- 20261102-111648 — Phase 3, step "run tests": FAIL — `logs/07-list-panels/20261102-111648--tests--FAIL.md`
+- 20261102-111648 — Phase 3, step "fix": done — implementation changelog (test mistakes only)
+- 20261102-112821 — Phase 3, step "run tests": FAIL — `logs/07-list-panels/20261102-112821--tests--FAIL.md`
+- 20261102-112821 — Phase 3, step "fix": done — implementation changelog (test timing only)
+- 20261102-114028 — Phase 3, step "run tests": PASS — `logs/07-list-panels/20261102-114028--tests--PASS.md`
+- 20261102-114028 — Phase 3, step "commit": done — commit `6ab3cb2`
+- 20261102-114056 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/07-list-panels/20261102-114056--book-changelog.md`

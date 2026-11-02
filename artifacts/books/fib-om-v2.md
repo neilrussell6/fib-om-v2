@@ -395,3 +395,29 @@ Review found two real gaps. The fix for the history entry closes a panel by goin
 The checklist runs bottom-up in seven groups: config and data first (`titleField`, the `statusTabs` object, a server-side `statusColumn` allowlist, `due_in_days` on orders, the Current pill colour), then the shared list pieces (generic tabs and pills, the history helper, the table's title-cell link), then the shared panel parts lifted out of the Order Items panel. Only once those exist does Order Items move onto them, and only then does the generic `RecordPanel` and the extended `ResourceListPage` bring panels to the other nine lists. Tests come last as their own group, with one e2e test per acceptance criterion and a separate set for the three 06 fixes.
 
 Review caught a case the spec had missed: clicking a second row while a panel is open. Each click pushed a history entry, so closing the second panel went back to the first one, and the first panel's clean-up wiped the second one's "opened from the list" marker. The fix is a single `openPanel` helper used by every opener: with a panel already open it replaces the URL instead of pushing, and hands the marker on. Review also replaced an e2e test that would have forged a Server Action request with one that provokes the same refusal for real, by moving the chosen docket to another client in the database just before saving.
+
+## Implementation
+
+The build followed the checklist from the bottom up. The status tabs stopped being an Order Items special case first: `statusTabs` became `{ key, options }` in the client-safe config, and a matching `statusColumn` (column plus Postgres enum type) went into the server-side query config, so the cast in the SQL still comes only from code. `listRecords` and `countByStatus` read both, and Orders and Delivery Dockets got their tabs without any new query code.
+
+The Order Items panel was then taken apart. Its frame (side panel or sheet, the hydration guard, focus, Escape, "Discard changes?", the footer) became `PanelShell`, and its collapsible sections, error handling, status chips and "Moved to …" toast became small shared pieces. A new `RecordPanel` puts any resource's edit-form fields inside the same shell, using the same `FieldControl` and `saveRecord` as the edit page, so the Users password rule, the docket-belongs-to-client rule and Orders' client-scoped docket picker all came along for free. The Order Items panel itself shrank to its item-specific content.
+
+The trickiest part was fix 2, Back after closing, and it lives in one small module:
+
+```ts
+export function openPanel(router: PanelRouter, href: string): void {
+  const panelOpen = new URLSearchParams(window.location.search).has("item");
+  if (!panelOpen) {
+    write(href);
+    router.push(href, { scroll: false });
+    return;
+  }
+  const marked = read() === normalise(currentUrl());
+  write(marked ? href : null);
+  router.replace(href, { scroll: false });
+}
+```
+
+Opening from the list pushes one history entry and remembers it; switching rows replaces instead, handing the marker on; closing goes back only when the marker matches the current URL. After a save the list must also reload, because Back restores a cached copy from before the save, so `closePanel` waits for the `popstate` before calling `router.refresh()`. Fix 1 was smaller: the Order Items panel now drops the order's Due and Status from what it sends unless the user changed them, and the server leaves the order alone when they're missing. Fix 3 is a single `max-lg:hidden` on the server-rendered side panel.
+
+The test runs found nothing wrong in the app, only in the new tests: a heading locator that also caught the sheet's hidden screen-reader title, a script-blocking route that blocked the stylesheets too (Next serves both from the same folder), and two tests that read table headers before the table had rendered. The suite finished at 434 unit and integration tests and 171 end-to-end tests, all passing.
