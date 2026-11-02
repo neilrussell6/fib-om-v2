@@ -186,3 +186,14 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261102-090312 — Phase 4, step "review" + "PR validation": PASS (author) — `logs/06-order-items-design/20261102-090312--review--PASS.md`; 3 accepted findings (1 medium, 2 low) left as follow-ups, no revision round
 - 20261102-090312 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/06-order-items-design/20261102-090312--book-changelog.md`
 - 20261102-090312 — Phase 4: feature workflow complete for 06-order-items-design
+
+## 07-list-panels
+
+- 20261102-090834 — Phase 1, step "research": done — `artifacts/specs/07-list-panels/research.md`
+- 20261102-090834 — Phase 1, step "spec": done — `artifacts/specs/07-list-panels/spec.md`
+- 20261102-093758 — Phase 1, step "spec review" + "spec validation": FAIL — `logs/07-list-panels/20261102-093758--spec-review--FAIL.md`
+- 20261102-093758 — Phase 1, step "spec revision": done — `logs/07-list-panels/20261102-093758--spec-revision-changelog.md`
+- 20261102-102139 — Phase 1, step "spec review" + "spec validation": PASS (with fix) — `logs/07-list-panels/20261102-102139--spec-review--PASS.md`
+- 20261102-102139 — Phase 1, step "spec revision" (non-blocking item): done — `logs/07-list-panels/20261102-102139--spec-revision-changelog.md`
+- 20261102-102139 — Phase 1, step "commit": done — commit `bfe8e6f`
+- 20261102-102139 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/07-list-panels/20261102-102139--book-changelog.md`
