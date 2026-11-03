@@ -265,3 +265,8 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261103-205246 — Phase 2, step "task revision" (non-blocking fixes): done — `artifacts/specs/09-review-fixes/tasks.md`
 - 20261103-205246 — Phase 2, step "commit": done — commit `529cdef`
 - 20261103-205317 — Phase 2, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/09-review-fixes/20261103-205317--book-changelog.md`
+- 20261103-214519 — Phase 3, step "write tests": done — new and moved tests under `tests/unit`, `tests/integration`, `tests/e2e`
+- 20261103-214519 — Phase 3, step "implement feature": done — `logs/09-review-fixes/20261103-214519--implementation-changelog.md`
+- 20261103-220655 — Phase 3, step "run tests": PASS — `logs/09-review-fixes/20261103-220655--tests--PASS.md` (AC-19 integration run time not met; flagged for review)
+- 20261103-220655 — Phase 3, step "commit": done — commit `23df247`
+- 20261103-220741 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/09-review-fixes/20261103-220741--book-changelog.md`

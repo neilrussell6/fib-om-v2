@@ -508,3 +508,25 @@ The three bugs follow, in order of reach. The reference route and `searchReferen
 The tests for those changes, the coverage configuration and the CI step come next. The test-pyramid moves close the checklist, one task per row of the spec's E and I tables. They come last because they lean on what came before: the CLI guards move to unit tests of functions that already exist, the list-query cases move to the builder P1 exports, and the new sign-in test drives the login action directly. The final group verifies the whole: e2e at or under 145 tests, integration at or under 25 seconds, the benchmark under 300 ms, and everything green.
 
 Review found no blocking problems, but it did find two tasks that depended on later ones. Capturing the old list query as a reference only makes sense before the rewrite replaces it, and the filter labels needed Order Items on the shared list page first. Both were reordered. Review also noted a quiet contradiction in the spec. One criterion demanded that the existing list tests pass "unchanged", while the pyramid section moves some of them to unit tests. The checklist now says the rewrite must pass the full, unmoved suite before any test is moved. The e2e cap turned out to have no slack at all, since the planned cuts plus two new tests came to exactly 145. So the docket check joins an existing test instead of adding one. The benchmark task also gained the guard rails the spec implied: it never runs in CI, and it can never seed 100,000 rows into the developer's own database.
+
+## Implementation
+
+The tests came first, and one of them turned out not to prove anything. The docket rule's concurrency test held the docket row `FOR UPDATE` on a second connection and expected the order save to wait. It waited on the old code too, because the order's foreign-key check already queues behind that lock. The test was rewritten around the race the lock really closes. A colleague changes the docket's To Client and hasn't committed yet. The order save must wait for that edit, then judge the docket as committed and refuse. On the old code the save read the stale client and attached the order anyway. On the new code, the check reads the docket `FOR SHARE` inside the write's own transaction:
+
+```ts
+if (key === "orders" && values.delivery_docket_id != null) {
+  // FOR SHARE: waits for a docket edit in flight, then sees its To Client as committed (spec 09 B2).
+  const { rows } = await db.query("SELECT to_client_id FROM delivery_dockets WHERE id = $1 FOR SHARE", [values.delivery_docket_id]);
+  if (!rows[0] || String(rows[0].to_client_id) !== String(values.client_id)) {
+    throw new RuleError("delivery docket has orders for another client");
+  }
+}
+```
+
+The list query became three small statements: a page of ids and the count, side by side, then just those rows by `id = ANY($1::bigint[])`. Its where-clause, status and sort pieces became exported pure functions, so the allowlist and invalid-value cases could move from integration tests to unit tests. A copy of the old single-statement query lives on as a test oracle. Every list's default sort and two column sorts must still return exactly the rows it returned. On a throwaway database seeded with 100,000 order items, the All tab's page now takes 84 ms and the New tab's 56 ms, against a 300 ms limit.
+
+The session check now returns the user's name and email along with the session version, so the sidebar reads the name from the session and makes no query of its own. Comboboxes take a `label` anchored to the value it arrived with: they show it without fetching, and fall back to fetching once the value changes. Order Items, which had copied the shared list page's loading logic, now renders that page with its own table, panel and dialog passed in. The page also resolves the labels for reference filters, so they only had to be written once.
+
+The pyramid moves were mostly mechanical. The CLIs' pre-connection checks became `createUserPreflight` and `seedPreflight`, which run against an injected environment and terminal flag, so twenty-five spawned `npx tsx` cases became in-process unit tests. Each CLI keeps one spawned run to prove the wiring. `tests/MOVED.md` lists every removed or merged test against the test that replaced it, and a unit test fails if any mapped target goes missing. The e2e suite went from 201 tests to 145, exactly at the cap: the old deep-link loop had covered nine resources, not the ten the estimate assumed. The suite's run time fell from about 9.6 minutes to 7.4. The first full run caught one bug in the new tests themselves. The merged axe sweep waited for "an h1 or a Sign in button", and on the login page that matched both, which Playwright's strict mode rejects.
+
+One target was missed. The integration suite was meant to drop to 25 seconds, but it runs in 30 seconds summed per file (45 by vitest's clock). The rest is a throwaway migrated database, bcrypt at its production cost, the two spawned CLI runs the spec chose to keep, and the new tests this feature added. That shortfall goes to review as it stands, rather than being hidden by weakening a test.
