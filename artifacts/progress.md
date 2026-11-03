@@ -270,3 +270,7 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261103-220655 — Phase 3, step "run tests": PASS — `logs/09-review-fixes/20261103-220655--tests--PASS.md` (AC-19 integration run time not met; flagged for review)
 - 20261103-220655 — Phase 3, step "commit": done — commit `23df247`
 - 20261103-220741 — Phase 3, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/09-review-fixes/20261103-220741--book-changelog.md`
+- 20261103-222345 — Phase 4, step "review" + "PR validation": PASS — `logs/09-review-fixes/20261103-222345--review--PASS.md` (author relaxed AC-19 to ≤ 50 s: `logs/09-review-fixes/20261103-222345--spec-revision-changelog.md`)
+- 20261103-222345 — Phase 4, step "commit review": done — commit `8c3c42c`
+- 20261103-222345 — Phase 4, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/09-review-fixes/20261103-222345--book-changelog.md`
+- 20261103-222345 — Feature workflow complete (phases 1–4). Open, low: combobox label re-fetch when two records share a name; `as never` casts on the Auth.js callbacks; `scripts/bench-lists.ts` imports a test helper.
