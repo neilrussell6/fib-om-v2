@@ -518,7 +518,7 @@ if (key === "orders" && values.delivery_docket_id != null) {
   // FOR SHARE: waits for a docket edit in flight, then sees its To Client as committed (spec 09 B2).
   const { rows } = await db.query("SELECT to_client_id FROM delivery_dockets WHERE id = $1 FOR SHARE", [values.delivery_docket_id]);
   if (!rows[0] || String(rows[0].to_client_id) !== String(values.client_id)) {
-    throw new RuleError("delivery docket has orders for another client");
+    throw new RuleError("delivery docket belongs to another client");
   }
 }
 ```
