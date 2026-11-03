@@ -6,8 +6,10 @@ import { query, tx } from "@/lib/db";
 import { mapDbError } from "@/lib/db/errors";
 import { updateRecord } from "@/lib/db/records";
 import type { SaveResult } from "@/lib/resources/actions";
+import { fieldErrorsFrom } from "@/lib/resources/schema";
 import { ORDER_FIELDS, panelSchema } from "./panel-schema";
-import { isId, STAGE_FLAG_SELECT, type StageFlags, takeStageFlags } from "./stages";
+import { isId } from "@/lib/ids";
+import { STAGE_FLAG_SELECT, type StageFlags, takeStageFlags } from "./stages";
 
 /**
  * The edit panel's Server Actions (spec 06). Every export here is a public
@@ -73,9 +75,7 @@ export async function saveOrderItemPanel(id: string | number, input: Record<stri
 
   const parsed = panelSchema().safeParse(input ?? {});
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] ??= issue.message;
-    return { ok: false, fieldErrors };
+    return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error.issues) };
   }
 
   // Order fields never reach updateRecord; only the item's own fields do.

@@ -16,9 +16,9 @@ export class UsageError extends Error {
  * Asks the operator to type the target's name before a staging or production run.
  * `--yes` skips it; with no terminal (and no `--yes`) it refuses before connecting.
  */
-export async function confirmTarget(target: Target, yes: boolean, what: string): Promise<void> {
+export async function confirmTarget(target: Target, yes: boolean, what: string, isTTY = Boolean(process.stdin.isTTY)): Promise<void> {
   if (yes) return;
-  if (!process.stdin.isTTY) {
+  if (!isTTY) {
     throw new GuardError(`--target ${target} needs a typed confirmation; run it in a terminal or pass --yes`);
   }
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -32,3 +32,11 @@ export function exitWithError(err: unknown): never {
   console.error(err instanceof GuardError || err instanceof UsageError ? err.message : err);
   process.exit(1);
 }
+
+/** Where a script's checks read their settings from; injectable so the guards can be unit tested (spec 09 T I1). */
+export type PreflightEnv = {
+  env?: Record<string, string | undefined>;
+  /** Directory holding the target's env file. */
+  dir?: string;
+  isTTY?: boolean;
+};

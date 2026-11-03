@@ -32,6 +32,7 @@ export function ReferenceCombobox({
   invalid,
   describedBy,
   bare,
+  label,
 }: {
   id: string;
   resource: ResourceKey;
@@ -44,14 +45,27 @@ export function ReferenceCombobox({
   describedBy?: string;
   /** Borderless trigger, for use inside an inline-label filter control (spec 06). */
   bare?: boolean;
+  /**
+   * The current value's label, given by the server (spec 09 P3). When it's given for the
+   * current value, the combobox shows it and doesn't fetch the label on mount.
+   */
+  label?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [options, setOptions] = useState<Option[]>([]);
   const [picked, setSelected] = useState<Option | null>(null);
+  // The server's label belongs to the value it was given with; a new label (after a server
+  // render) re-anchors it to the value at that point.
+  const [given, setGiven] = useState<Option | null>(label ? { id: Number(value), label } : null);
+  const [lastLabel, setLastLabel] = useState(label);
+  if (label !== lastLabel) {
+    setLastLabel(label);
+    setGiven(label ? { id: Number(value), label } : null);
+  }
   const request = useRef(0);
   // The option shown is the one matching the current value (cleared values show nothing).
-  const selected = picked && String(picked.id) === value ? picked : null;
+  const selected = picked && String(picked.id) === value ? picked : given && String(given.id) === value ? given : null;
 
   // Label for the current value (edit forms and URL filters only have the id).
   useEffect(() => {

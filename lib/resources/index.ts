@@ -145,9 +145,9 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
     fields: [
       text("name", "Name", { required: true }),
       { name: "category_id", label: "Category", type: "reference", ref: "product_categories", required: true, display: "category_name" },
-      { name: "type_id", label: "Type", type: "reference", ref: "product_types", required: true, display: "type_name" },
+      { name: "type_id", label: "Type", type: "reference", ref: "product_types", required: true, display: "type_name", displayLabel: ["type_code", "type_name"] },
       { name: "size_id", label: "Size", type: "reference", ref: "product_sizes", required: true, display: "size_name" },
-      { name: "media_id", label: "Media", type: "reference", ref: "product_media", required: true, display: "media_name" },
+      { name: "media_id", label: "Media", type: "reference", ref: "product_media", required: true, display: "media_name", displayLabel: ["media_code", "media_name"] },
       bool("notcher", "Notcher"),
       text("efficiency", "Efficiency"),
     ],
@@ -238,7 +238,7 @@ export const RESOURCES: Record<ResourceKey, ResourceUi> = {
     createDescription: "Add a product line to an existing order.",
     titleField: "order_number",
     fields: [
-      { name: "order_id", label: "Order", type: "reference", ref: "orders", required: true, display: "order_number" },
+      { name: "order_id", label: "Order", type: "reference", ref: "orders", required: true, display: "order_number", displayLabel: ["order_number", "client_name"] },
       { name: "product_id", label: "Product", type: "reference", ref: "products", required: true, display: "product_name" },
       text("product_type_code", "Type Code", { form: false }),
       text("product_type_name", "Description", { form: false }),
@@ -319,6 +319,20 @@ export const resourceAddLabel = (r: ResourceUi) => `Add ${resourceNewLabel(r).re
 
 /** The singular in sentence case, e.g. "Product category" (spec 07 panel caption and not-found toast). */
 export const singularLabel = (r: ResourceUi) => r.singular.charAt(0) + r.singular.slice(1).toLowerCase();
+
+/**
+ * The label a reference field's current value shows, built from the record's view row the
+ * same way the combobox's own lookup builds it (spec 09 P3): the `displayLabel` columns
+ * joined with " · ", or the `display` column. Null when any of those columns is empty, so
+ * the combobox falls back to fetching the label.
+ */
+export function referenceLabel(field: FieldDef, row: Record<string, unknown>): string | null {
+  const columns = field.displayLabel ?? (field.display ? [field.display] : []);
+  if (!columns.length) return null;
+  const parts = columns.map((c) => row[c]);
+  if (parts.some((v) => v === null || v === undefined || v === "")) return null;
+  return parts.map(String).join(" · ");
+}
 
 /** The record's title for the panel heading and the title cell: its title field, or its email when blank (spec 07). */
 export function recordTitle(r: ResourceUi, row: Record<string, unknown>): string {

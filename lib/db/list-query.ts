@@ -80,8 +80,15 @@ function condition(f: FilterSql, param: number): string {
   }
 }
 
-/** The WHERE conditions and values for a resource's allowlisted URL filters. */
-function filterWhere(key: ResourceKey, filters: Record<string, string | undefined>): { where: string[]; values: unknown[] } {
+/**
+ * The WHERE conditions and values for a resource's allowlisted URL filters. Parameters are
+ * numbered from `offset + 1`. Pure: no database access (spec 09, unit tested).
+ */
+export function filterWhere(
+  key: ResourceKey,
+  filters: Record<string, string | undefined>,
+  offset = 0,
+): { where: string[]; values: unknown[] } {
   const cfg = queryConfig(key);
   const ui = getResource(key);
   const where: string[] = [];
@@ -94,7 +101,7 @@ function filterWhere(key: ResourceKey, filters: Record<string, string | undefine
     const options = ui.list.filters.find((x) => x.key === name)?.options?.map((o) => o.value);
     if (!isValidValue(f, value, options)) continue;
     values.push(f.kind === "contains" ? likeEscape(value) : value);
-    where.push(condition(f, values.length));
+    where.push(condition(f, offset + values.length));
   }
   return { where, values };
 }
@@ -108,41 +115,70 @@ function statusConfig(key: ResourceKey): { column: string; enumType: string; val
 }
 
 /**
- * One page of a resource's list, filtered and sorted only by allowlisted keys,
- * with the total from count(*) OVER () in the same query (overview O5).
+ * The status tab's condition as parameter `$param`, or null for an unknown status (All).
+ * Throws for a resource without status tabs (spec 07).
+ */
+export function statusCondition(key: ResourceKey, status: string, param: number): { condition: string; value: string } | null {
+  const st = statusConfig(key);
+  if (!st.values.includes(status)) return null;
+  return { condition: `${st.column} = $${param}::${st.enumType}`, value: status };
+}
+
+/**
+ * The ORDER BY for an allowlisted sort key, with id as the tie-break in the same direction.
+ * No sort means the resource's default sort and direction; an explicit sort defaults to asc.
+ */
+export function orderBy(key: ResourceKey, sort?: string, dir?: "asc" | "desc"): { sort: string; dir: "asc" | "desc"; sql: string } {
+  const ui = getResource(key);
+  const s = sort ?? ui.list.defaultSort.key;
+  const column = queryConfig(key).sorts[s];
+  if (!column) throw new UnknownKeyError(`Unknown sort: ${s}`);
+  const d = dir ?? (sort ? "asc" : ui.list.defaultSort.dir);
+  const direction = d === "desc" ? "DESC" : "ASC";
+  return { sort: s, dir: d, sql: `${column} ${direction} NULLS LAST, id ${direction}` };
+}
+
+/**
+ * One page of a resource's list, filtered and sorted only by allowlisted keys (overview O5).
+ *
+ * Spec 09 P1: a page of ids and the total are two statements run side by side, then only
+ * those rows are read. `count(*) OVER ()` made Postgres build the whole filtered set for
+ * every page (~800 ms at 200k order items). The total is the real count even past the last
+ * page. Rows and total come from separate statements, so under concurrent writes they can
+ * disagree by a few rows; that's accepted.
  */
 export async function listRecords(key: ResourceKey, params: ListParams): Promise<ListResult> {
   const cfg = queryConfig(key);
-  const ui = getResource(key);
   const { where, values } = filterWhere(key, params.filters ?? {});
   if (params.status !== undefined) {
-    const st = statusConfig(key);
-    if (st.values.includes(params.status)) {
-      values.push(params.status);
-      where.push(`${st.column} = $${values.length}::${st.enumType}`);
+    const st = statusCondition(key, params.status, values.length + 1);
+    if (st) {
+      where.push(st.condition);
+      values.push(st.value);
     }
   }
-
-  const sort = params.sort ?? ui.list.defaultSort.key;
-  const column = cfg.sorts[sort];
-  if (!column) throw new UnknownKeyError(`Unknown sort: ${sort}`);
-  const dir = params.dir ?? (params.sort ? "asc" : ui.list.defaultSort.dir);
-  const direction = dir === "desc" ? "DESC" : "ASC";
-
+  const order = orderBy(key, params.sort, params.dir);
   const pageSize = normalisePageSize(params.pageSize);
   const page = Math.max(1, Math.floor(Number(params.page) || 1));
-  values.push(pageSize, (page - 1) * pageSize);
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-  const rows = await query<Record<string, unknown>>(
-    `SELECT ${cfg.select}, count(*) OVER () AS __total FROM ${cfg.source}
-     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-     ORDER BY ${column} ${direction} NULLS LAST, id ${direction}
-     LIMIT $${values.length - 1} OFFSET $${values.length}`,
-    values,
-  );
-  const total = rows.length ? Number(rows[0].__total) : 0;
-  for (const r of rows) delete r.__total;
-  return { rows, total, page, pageSize, sort, dir };
+  const [idRows, countRows] = await Promise.all([
+    query<{ id: string | number }>(
+      `SELECT id FROM ${cfg.source} ${whereSql}
+       ORDER BY ${order.sql}
+       LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+      [...values, pageSize, (page - 1) * pageSize],
+    ),
+    query<{ n: number }>(`SELECT count(*)::int AS n FROM ${cfg.source} ${whereSql}`, values),
+  ]);
+  const total = Number(countRows[0]?.n ?? 0);
+  const ids = idRows.map((r) => String(r.id));
+  if (!ids.length) return { rows: [], total, page, pageSize, sort: order.sort, dir: order.dir };
+
+  const found = await query<Record<string, unknown>>(`SELECT ${cfg.select} FROM ${cfg.source} WHERE id = ANY($1::bigint[])`, [ids]);
+  const byId = new Map(found.map((r) => [String(r.id), r]));
+  const rows = ids.map((id) => byId.get(id)).filter((r): r is Record<string, unknown> => r !== undefined);
+  return { rows, total, page, pageSize, sort: order.sort, dir: order.dir };
 }
 
 /**

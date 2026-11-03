@@ -89,6 +89,50 @@ describe("AC-16 ci.yml", () => {
   });
 });
 
+// Spec 09 AC-15: coverage runs in CI, report only.
+describe("09 AC-15 coverage", () => {
+  type Step = { name?: string; run?: string; uses?: string; if?: string; "continue-on-error"?: boolean; with?: Record<string, unknown> };
+  const steps = () => Object.values((parse(read(".github/workflows/ci.yml")) as Workflow).jobs).flatMap((j) => (j.steps ?? []) as Step[]);
+
+  it("test:coverage runs only the unit and integration projects", () => {
+    const script = pkg().scripts["test:coverage"];
+    expect(script).toBe("vitest run --coverage --project unit --project integration");
+  });
+
+  it("CI runs coverage after the unit and integration steps, without failing the build", () => {
+    const all = steps();
+    const i = all.findIndex((s) => s.run?.includes("test:coverage"));
+    expect(i).toBeGreaterThan(-1);
+    expect(all[i]["continue-on-error"]).toBe(true);
+    expect(i).toBeGreaterThan(all.findIndex((s) => s.run === "npm test"));
+    expect(i).toBeGreaterThan(all.findIndex((s) => s.run?.includes("test:integration")));
+  });
+
+  it("CI always uploads the coverage report", () => {
+    const upload = steps().find((s) => s.uses?.startsWith("actions/upload-artifact") && String(s.with?.path ?? "").includes("coverage"));
+    expect(upload).toBeDefined();
+    expect(upload!.if).toBe("always()");
+  });
+
+  it("vitest.config.mts declares v8 coverage with the spec's thresholds", () => {
+    const cfg = read("vitest.config.mts");
+    expect(cfg).toMatch(/provider:\s*"v8"/);
+    expect(cfg).toContain("thresholds");
+    for (const f of [
+      "components/resource/list-params.ts",
+      "components/resource/format.ts",
+      "components/resource/panel/saved-toast.ts",
+      "components/resource/panel/use-panel-errors.ts",
+      "components/app-shell/sidebar-state.ts",
+      "lib/auth/callbacks.ts",
+    ]) {
+      expect(cfg, f).toContain(f);
+    }
+    expect(cfg).toMatch(/lib\/auth\.ts/);
+    expect(cfg).toMatch(/lib\/db\/index\.ts/);
+  });
+});
+
 describe("AC-17 deploy.yml", () => {
   const wf = () => parse(read(".github/workflows/deploy.yml")) as Workflow;
 

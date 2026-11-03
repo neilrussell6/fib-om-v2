@@ -39,7 +39,7 @@ function DebouncedInput({ id, filter, value, onCommit }: { id: string; filter: F
  * List filters (spec 02): some always shown, the rest added from "Add filter";
  * every value lives in the URL (nuqs) so a filtered list can be bookmarked.
  */
-export function FilterBar({ filters }: { filters: FilterDef[] }) {
+export function FilterBar({ filters, labels }: { filters: FilterDef[]; /** Reference filters' current labels, from the server (spec 09 P3). */ labels?: Record<string, string> }) {
   const parsers = useMemo(
     () => Object.fromEntries([...filters.map((f) => [f.key, parseAsString]), ["page", parseAsString]]),
     [filters],
@@ -75,7 +75,7 @@ export function FilterBar({ filters }: { filters: FilterDef[] }) {
             </label>
             <div className="flex h-full min-w-0 flex-1 items-center pr-2">
                 {f.kind === "reference" ? (
-                  <ReferenceCombobox id={id} resource={f.ref!} value={value} onChange={(v) => set(f.key, v)} bare />
+                  <ReferenceCombobox id={id} resource={f.ref!} value={value} onChange={(v) => set(f.key, v)} label={labels?.[f.key]} bare />
                 ) : f.kind === "select" ? (
                   <select
                     id={id}

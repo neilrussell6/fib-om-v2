@@ -217,16 +217,6 @@ test.describe("panel", () => {
     await expect(tab(page, "Archived")).toHaveAttribute("aria-selected", "true");
   });
 
-  test("06 AC-18 non-numeric and unknown ids open no panel; unknown shows a toast", async ({ page }) => {
-    await page.goto("/order-items?item=abc");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Order items");
-    await expect(panel(page)).toHaveCount(0);
-    await expect(page.getByText("Order item not found")).toHaveCount(0);
-    await page.goto("/order-items?item=999999999");
-    await expect(panel(page)).toHaveCount(0);
-    await expect(page.getByText("Order item not found", { exact: true })).toBeVisible();
-  });
-
   test("06 AC-19 saving a quantity closes the panel, toasts, and updates the row", async ({ page }) => {
     await page.goto(listUrl(`&item=${ids.soonA}`));
     await panel(page).getByLabel("Quantity", { exact: true }).fill("9");

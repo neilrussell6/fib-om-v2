@@ -1,5 +1,6 @@
 import { query } from "@/lib/db";
-import { queryConfig } from "@/lib/db/list-query";
+import { queryConfig, UnknownKeyError } from "@/lib/db/list-query";
+import { isId } from "@/lib/ids";
 import type { ResourceKey } from "@/lib/resources";
 
 export const OPTIONS_LIMIT = 25;
@@ -16,6 +17,10 @@ export async function searchReferences(
   opts: { q?: string; id?: number | string; clientId?: number | string },
 ): Promise<ReferenceOption[]> {
   const { options } = queryConfig(key);
+  // A malformed id never reaches Postgres, where the bigint cast would fail the request (spec 09 B1).
+  for (const [name, v] of [["id", opts.id], ["clientId", opts.clientId]] as const) {
+    if (v !== undefined && v !== "" && !isId(v)) throw new UnknownKeyError(`Invalid ${name}: ${String(v)}`);
+  }
   const where: string[] = [];
   const values: unknown[] = [];
   if (opts.id !== undefined && opts.id !== "") {

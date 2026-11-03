@@ -72,6 +72,18 @@ jobs:
       - name: Integration tests
         run: npm run test:integration
 
+      # Spec 09: coverage is reported, not enforced (thresholds in vitest.config.mts).
+      - name: Coverage
+        run: npm run test:coverage
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage
+          retention-days: 7
+
       - name: Build
         run: npm run build
 

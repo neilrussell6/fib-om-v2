@@ -10,8 +10,10 @@ export function Pagination({ total, page, pageSize }: { total: number; page: num
   const [, setQuery] = useQueryStates({ page: parseAsString, pageSize: parseAsString }, { shallow: false });
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const sizeId = useId();
-  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const to = Math.min(total, page * pageSize);
+  // Past the last page (e.g. ?page=999) there are no rows but a real total: "Showing 0–0 of n" (spec 09).
+  const pastEnd = total > 0 && (page - 1) * pageSize >= total;
+  const from = total === 0 || pastEnd ? 0 : (page - 1) * pageSize + 1;
+  const to = pastEnd ? 0 : Math.min(total, page * pageSize);
   const nav = "rounded-sm px-1 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-3 text-[13px] text-muted-foreground print:hidden">

@@ -98,17 +98,8 @@ describe("07 AC-2 / AC-3 status tabs on orders and delivery dockets", () => {
     expect(await countByStatus("order_items", { order: String(fx.orderId) })).toEqual({ new: 1, complete: 0, archived: 0 });
   });
 
-  it("rejects status filtering and counting for resources without status tabs", async () => {
-    const { listRecords, countByStatus } = await listQuery();
-    await expect(listRecords("clients", { status: "new" })).rejects.toThrow();
-    await expect(countByStatus("products", {})).rejects.toThrow();
-  });
-
-  it("the old status filter is gone from orders and dockets", async () => {
-    const { listRecords } = await listQuery();
-    await expect(listRecords("orders", { filters: { status: "new" } })).rejects.toThrow(/Unknown filter/);
-    await expect(listRecords("delivery_dockets", { filters: { status: "current" } })).rejects.toThrow(/Unknown filter/);
-  });
+  // Spec 09 T I3: "rejects status filtering … without status tabs" and "the old status filter is
+  // gone" are unit tests of the builder (tests/unit/list-query-builder.test.ts).
 });
 
 describe("07 AC-5 orders due_in_days", () => {

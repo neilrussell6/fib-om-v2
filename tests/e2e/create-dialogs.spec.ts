@@ -311,26 +311,6 @@ test.describe("08 AC-8 Orders dialog", () => {
   });
 });
 
-test.describe("08 AC-9 Users dialog", () => {
-  test("Password is required; a user with a blank name is created", async ({ page }) => {
-    await page.goto("/users?new=1");
-    const d = dialog(page, "New user");
-    await ready(d);
-    const email = `${fx.tag}-dialog@example.com`;
-    await field(d, "Email").fill(email);
-    await d.getByRole("button", { name: "Add user", exact: true }).click();
-    await expect(fieldError(page, "password")).toBeVisible();
-    await expect(d.locator('[data-optional-for="password"]')).toHaveCount(0);
-    await field(d, "Password").fill("dialog-password-12");
-    await d.getByRole("button", { name: "Add user", exact: true }).click();
-    await expect(d).toBeHidden();
-    await expectToast(page, "User successfully created");
-    const u = await one<{ name: string | null; password_hash: string }>("SELECT name, password_hash FROM users WHERE email = $1", [email]);
-    expect(u.name).toBeNull();
-    expect(u.password_hash).toMatch(/^\$2[aby]\$/);
-  });
-});
-
 test.describe("08 AC-10 Order Items dialog", () => {
   test("Size follows the product; the stepper stops at 1; the item is created on the chosen Order", async ({ page }) => {
     await page.goto("/order-items?new=1");

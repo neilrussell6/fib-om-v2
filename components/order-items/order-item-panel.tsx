@@ -199,6 +199,7 @@ export function OrderItemPanel({
                 void onProductChange(v);
               }}
               invalid={Boolean(errorFor("product_id"))}
+              label={data.product_name ? String(data.product_name) : null}
             />
           )}
         />
@@ -222,6 +223,7 @@ export function OrderItemPanel({
                 void onOrderChange(v);
               }}
               invalid={Boolean(errorFor("order_id"))}
+              label={data.order_number && data.client_name ? `${data.order_number} · ${data.client_name}` : null}
             />
           )}
         />

@@ -40,6 +40,11 @@ export type FieldDef = {
   refFilter?: { param: "clientId"; from: string };
   /** Column in the list/detail view row holding the display text for a reference. */
   display?: string;
+  /**
+   * View-row columns whose values, joined with " · ", make the same label the reference
+   * combobox shows (`QUERIES[ref].options.label`), where that differs from `display` (spec 09 P3).
+   */
+  displayLabel?: string[];
   /** Form section, rendered as a labelled group. */
   group?: string;
   /** false: not on the form (detail only). */

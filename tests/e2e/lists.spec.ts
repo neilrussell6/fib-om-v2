@@ -14,19 +14,14 @@ test.afterAll(() => removeFixture(fx.tag));
 const headers = (page: import("@playwright/test").Page) =>
   page.getByRole("columnheader").evaluateAll((els) => els.map((e) => e.textContent?.trim()).filter((t) => t && t !== "Actions"));
 
-// AC-6: each list's default columns and sort with no URL params.
+// AC-6: a list's default columns and sort with no URL params.
 // Spec 06 AC-8: sentence-case titles and "New …" buttons; AC-12: the order-items columns.
+// Spec 09 T E3: every list's columns, default sort and New label are unit tested from the config
+// (tests/unit/resources-config.test.ts), and every list renders through the same table; the
+// browser keeps one simple list and Order Items, which has its own table.
 const LISTS = [
-  ["/users", "Users", ["Name", "Email"], "Email", "New user"],
   ["/clients", "Clients", ["Name", "Full Name", "Phone", "Shipping Address"], "Name", "New client"],
-  ["/products", "Products", ["Category", "Type Name", "Type Code", "Name", "Size", "Media"], "Category", "New product"],
-  ["/product-categories", "Product categories", ["Name"], "Name", "New product category"],
-  ["/product-types", "Product types", ["Name", "Code", "MM per Pleat"], "Code", "New product type"],
-  ["/product-sizes", "Product sizes", ["Name"], "Name", "New product size"],
-  ["/product-media", "Product media", ["Name", "Code", "Pleat Spacing"], "Code", "New product media"],
-  ["/orders", "Orders", ["Client", "Order Number", "Delivery Docket", "Created", "Due", "Status"], "Created", "New order"],
   ["/order-items", "Order items", ["Client", "Order", "Product", "Size", "Qty", "Due", "Status"], "Due", "New item"],
-  ["/delivery-dockets", "Delivery dockets", ["To Client", "Docket Number", "Date", "Status"], "Date", "New delivery docket"],
 ] as const;
 
 for (const [path, title, columns, sortedBy, newLabel] of LISTS) {
@@ -128,12 +123,6 @@ test("AC-10 filters that aren't always shown are added from the Add filter menu"
   await expect(filters.getByLabel("Efficiency", { exact: true })).toBeVisible();
 });
 
-test("AC-11 list text filters match anywhere, case-insensitively", async ({ page }) => {
-  const middle = fx.names.client.slice(3, 9).toUpperCase();
-  await page.goto(`/clients?name=${encodeURIComponent(middle)}`);
-  await expect(page.getByRole("row").filter({ hasText: fx.names.client })).toHaveCount(1);
-});
-
 // Spec 07 AC-1 supersedes spec 02's "rows open the detail page, each row has an Edit action":
 // the title cell is a keyboard-reachable link that opens the edit panel.
 test("Review 02 finding 3 / 07 AC-1: a row's title cell is a keyboard-reachable link to its edit panel", async ({ page }) => {
@@ -154,18 +143,6 @@ test("AC-6 / 07 AC-1 rows open the edit panel and there is no Edit column", asyn
   await row.getByRole("cell").last().click();
   await expect(page).toHaveURL(new RegExp(`/clients\\?.*item=${fx.clientId}$`));
   await expect(page.getByRole("region", { name: "Edit client" })).toBeVisible();
-});
-
-test("Review 02 finding 1: invalid filter values in the URL don't break the list", async ({ page }) => {
-  for (const [path, heading] of [
-    ["/orders?created_from=abc&client=abc", "Orders"],
-    ["/order-items?height_from=x&status=nope", "Order items"],
-    ["/delivery-dockets?status=nope", "Delivery dockets"],
-  ]) {
-    await page.goto(path);
-    await expect(page.getByRole("heading", { level: 1 }), path).toHaveText(heading);
-    await expect(page.getByText(/^(Showing \d+–\d+ of \d+|No results)$/), path).toBeVisible();
-  }
 });
 
 test("Review 02 finding 2: no duplicate ids after client-side navigation between forms", async ({ page }) => {

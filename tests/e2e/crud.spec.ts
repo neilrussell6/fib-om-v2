@@ -2,7 +2,9 @@ import { expect, type Page, test } from "@playwright/test";
 import { createFixture, type Fixture, removeFixture } from "../helpers/fixtures";
 import { expectToast, fillField, pickReference, save, confirmDelete } from "./form-helpers";
 
-// AC-5: for each resource, create → list → detail → edit → delete, with the success toasts.
+// AC-5: create → list → detail → edit → delete, with the success toasts. Spec 09 T E2: every
+// resource's lifecycle is an integration test (tests/integration/crud-lifecycle.test.ts); the
+// browser flow keeps one simple resource (Users) and one with references (Order Items).
 let fx: Fixture;
 test.beforeAll(async () => {
   fx = await createFixture();
@@ -40,77 +42,6 @@ const cases: Case[] = [
       return `${t}-edited@example.com`;
     },
     find: (t) => `email=${t}`,
-  },
-  {
-    key: "clients", path: "/clients", singular: "Client",
-    create: async (p, t) => (await fillField(p, "Name", `${t} Client`), `${t} Client`),
-    edit: async (p, t) => (await fillField(p, "Name", `${t} Client Edited`), `${t} Client Edited`),
-    find: (t) => `name=${t}`,
-  },
-  {
-    key: "product_categories", path: "/product-categories", singular: "Product Category",
-    create: async (p, t) => (await fillField(p, "Name", `${t} Cat`), `${t} Cat`),
-    edit: async (p, t) => (await fillField(p, "Name", `${t} Cat Edited`), `${t} Cat Edited`),
-    find: (t) => `name=${t}`,
-  },
-  {
-    key: "product_types", path: "/product-types", singular: "Product Type",
-    create: async (p, t) => {
-      await fillField(p, "Name", `${t} Type`);
-      await fillField(p, "Code", `${t}C`);
-      await fillField(p, "MM per Pleat", "12");
-      return `${t} Type`;
-    },
-    edit: async (p, t) => (await fillField(p, "Name", `${t} Type Edited`), `${t} Type Edited`),
-    find: (t) => `name=${t}`,
-  },
-  {
-    key: "product_sizes", path: "/product-sizes", singular: "Product Size",
-    create: async (p, t) => (await fillField(p, "Name", `${t} Size`), `${t} Size`),
-    edit: async (p, t) => (await fillField(p, "Name", `${t} Size Edited`), `${t} Size Edited`),
-    find: (t) => `name=${t}`,
-  },
-  {
-    key: "product_media", path: "/product-media", singular: "Product Media",
-    create: async (p, t) => {
-      await fillField(p, "Name", `${t} Media`);
-      await fillField(p, "Code", `${t}M`);
-      await fillField(p, "Pleat Spacing", "4");
-      return `${t} Media`;
-    },
-    edit: async (p, t) => (await fillField(p, "Name", `${t} Media Edited`), `${t} Media Edited`),
-    find: (t) => `name=${t}`,
-  },
-  {
-    key: "products", path: "/products", singular: "Product",
-    create: async (p, t) => {
-      await fillField(p, "Name", `${t} Product`);
-      await pickReference(p, "Category", fx.names.category, fx.names.category);
-      await pickReference(p, "Type", fx.names.type, `${fx.names.typeCode} · ${fx.names.type}`);
-      await pickReference(p, "Size", fx.names.size, fx.names.size);
-      await pickReference(p, "Media", fx.names.media, `${fx.names.mediaCode} · ${fx.names.media}`);
-      return `${t} Product`;
-    },
-    edit: async (p, t) => (await fillField(p, "Name", `${t} Product Edited`), `${t} Product Edited`),
-    find: (t) => `name=${t}`,
-  },
-  {
-    key: "delivery_dockets", path: "/delivery-dockets", singular: "Delivery Docket", createGoesToDetail: true,
-    // Identified by its docket number (the zero-padded id), read from the URL after create.
-    create: async (p) => (await pickReference(p, "To Client", fx.names.otherClient, fx.names.otherClient), ""),
-    edit: async (p) => (await pickReference(p, "To Client", fx.names.client, fx.names.client), ""),
-    find: () => `to_client=${encodeURIComponent(fx.tag)}&pageSize=100`,
-  },
-  {
-    key: "orders", path: "/orders", singular: "Order",
-    create: async (p, t) => {
-      await pickReference(p, "Client", fx.names.client, fx.names.client);
-      await fillField(p, "Order Number", `${t}-ON`);
-      await fillField(p, "Due Date", "2026-12-24");
-      return `${t}-ON`;
-    },
-    edit: async (p, t) => (await fillField(p, "Order Number", `${t}-ON2`), `${t}-ON2`),
-    find: (t) => `order_number=${t}`,
   },
   {
     key: "order_items", path: "/order-items", singular: "Order Item", panel: true,

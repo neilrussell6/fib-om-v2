@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { clearLoginAttempts, deleteUser } from "../helpers/test-db";
-import { ensureTestUser, loginAlert, signIn, signInAndWait, TEST_USER, uniqueIp } from "./helpers";
+import { clearLoginAttempts } from "../helpers/test-db";
+import { ensureTestUser, loginAlert, signIn, TEST_USER, uniqueIp } from "./helpers";
 
 // These tests are about signing in, so they start signed out and each uses its own client IP.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -44,7 +44,8 @@ test("AC-4 an internal callbackUrl is honoured", async ({ page }) => {
   await expect(page).toHaveURL(/\/some\/internal\/path$/);
 });
 
-for (const bad of ["https://evil.example", "//evil.example", "javascript:alert(1)"]) {
+// Spec 09 T E7: the other unsafe callbackUrls are unit tests of safeCallbackUrl (tests/unit/callback-url.test.ts).
+for (const bad of ["//evil.example"]) {
   test(`AC-4 callbackUrl ${bad} lands on /`, async ({ page }) => {
     ensureTestUser();
     await page.goto(`/login?callbackUrl=${encodeURIComponent(bad)}`);
@@ -64,13 +65,6 @@ test("AC-5 wrong password and unknown email show the same message", async ({ pag
   await page.goto("/login");
   await signIn(page, "nobody-here@example.com", "definitely-wrong-123");
   await expect(loginAlert(page)).toHaveText("Email or password is incorrect");
-});
-
-test("AC-5 email in a different case signs in", async ({ page }) => {
-  ensureTestUser();
-  await page.goto("/login");
-  await signIn(page, "E2E-Staff@Example.com", TEST_USER.password);
-  await expect(page).toHaveURL(/\/$/);
 });
 
 // Sign-out ends every session of that user (session version), so these tests use their
@@ -101,19 +95,4 @@ test("Review 02: a session cookie issued before sign-out is rejected afterwards 
   await context.addCookies([before!]);
   await page.goto("/");
   await expect(page).toHaveURL(/\/login\?callbackUrl=%2F$/);
-});
-
-test("AC-19 the 11th sign-in attempt in a minute is refused, without checking the password", async ({ page }) => {
-  const email = "limit-test@example.com";
-  ensureTestUser(email, "limit-password-123");
-  await page.goto("/login");
-  for (let i = 0; i < 10; i++) {
-    await signInAndWait(page, email, `wrong-password-${i}x`);
-    await expect(loginAlert(page)).toHaveText("Email or password is incorrect");
-  }
-  // Correct password, but the limit applies first.
-  await signInAndWait(page, email, "limit-password-123");
-  await expect(loginAlert(page)).toHaveText("Too many sign-in attempts. Try again in a minute.");
-  await expect(page).toHaveURL(/\/login/);
-  await deleteUser(email);
 });

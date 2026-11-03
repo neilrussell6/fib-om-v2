@@ -14,7 +14,7 @@
 import { parseArgs } from "node:util";
 import pg from "pg";
 import { SHOW_COLUMNS, V1_CATEGORIES, flagsWith } from "@/lib/data/v1-categories";
-import { confirmTarget, exitWithError, UsageError } from "./lib/cli";
+import { confirmTarget, exitWithError, type PreflightEnv, UsageError } from "./lib/cli";
 import { checkTarget, envValue, GuardError, isProductionHost, loadTargetEnv, parseTarget } from "./lib/target-guard";
 
 export { UsageError };
@@ -368,26 +368,37 @@ function positiveInt(name: string, value: string): number {
   return n;
 }
 
-async function main(argv: readonly string[]): Promise<void> {
+/**
+ * Every check before connecting: arguments, target (never production), the database host
+ * guard, FROM_CLIENT_ID and, for staging, the typed confirmation. Throws a one-line
+ * UsageError or GuardError on refusal (spec 03 AC-6, AC-7; unit tested since spec 09).
+ */
+export async function seedPreflight(
+  argv: readonly string[],
+  { env = process.env, dir = process.cwd(), isTTY = Boolean(process.stdin.isTTY) }: PreflightEnv = {},
+): Promise<{ target: "local" | "staging"; host: string; seed: number; fromClientId: number }> {
   const args = parseCliArgs(argv);
   const target = parseTarget(args.target);
   if (target === "production") throw new GuardError("seed-dummy never runs against production");
-  const envFile = loadTargetEnv(target);
-  const host = checkTarget(target);
-  if (isProductionHost()) throw new GuardError("DATABASE_URL_UNPOOLED points at the production database");
+  const envFile = loadTargetEnv(target, dir, env);
+  const host = checkTarget(target, env);
+  if (isProductionHost(env)) throw new GuardError("DATABASE_URL_UNPOOLED points at the production database");
 
-  const seed = args.seed;
   let fromClientId = 1;
-  const fromEnv = envValue("FROM_CLIENT_ID");
+  const fromEnv = envValue("FROM_CLIENT_ID", env);
   if (target === "staging") {
     if (!fromEnv) throw new GuardError("FROM_CLIENT_ID must be set for --target staging (use Vercel Preview's value)");
     fromClientId = positiveInt("FROM_CLIENT_ID", fromEnv);
     console.log(`Target staging: ${host} (settings from ${envFile ?? "the shell environment"})`);
-    await confirmTarget(target, args.yes, "This wipes staging's clients, products, orders and dockets.");
+    await confirmTarget(target, args.yes, "This wipes staging's clients, products, orders and dockets.", isTTY);
   } else if (fromEnv) {
     fromClientId = positiveInt("FROM_CLIENT_ID", fromEnv);
   }
+  return { target, host, seed: args.seed, fromClientId };
+}
 
+async function main(argv: readonly string[]): Promise<void> {
+  const { target, seed, fromClientId } = await seedPreflight(argv);
   const client = new pg.Client({ connectionString: envValue("DATABASE_URL_UNPOOLED") });
   await client.connect();
   try {

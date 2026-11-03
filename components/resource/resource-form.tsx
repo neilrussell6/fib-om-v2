@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { formFields, getResource } from "@/lib/resources";
+import { formFields, getResource, referenceLabel } from "@/lib/resources";
 import { saveRecord } from "@/lib/resources/actions";
 import { buildSchema, initialValues } from "@/lib/resources/schema";
 import type { FieldDef, ResourceKey } from "@/lib/resources/types";
@@ -36,6 +36,7 @@ export function FieldControl({
   dependents,
   setValue,
   optionalHint = false,
+  refLabel,
 }: {
   field: FieldDef;
   control: Control<Values>;
@@ -47,6 +48,8 @@ export function FieldControl({
   setValue: UseFormSetValue<Values>;
   /** The create dialog's style (spec 08): "(optional)" after an optional field's label instead of a * on required ones. */
   optionalHint?: boolean;
+  /** A reference field's current label from the record, so the combobox needn't fetch it (spec 09 P3). */
+  refLabel?: string | null;
 }) {
   const error = errorText(errors, field.name);
   const id = `${idPrefix}-${field.name}`;
@@ -126,6 +129,7 @@ export function FieldControl({
                   allowClear={!field.required}
                   invalid={Boolean(error)}
                   describedBy={error ? errorId : undefined}
+                  label={refLabel}
                 />
               );
             default:
@@ -208,6 +212,7 @@ export function ResourceForm({
       idPrefix={idPrefix}
       dependents={dependentsOf(f.name)}
       setValue={setValue}
+      refLabel={record && f.type === "reference" ? referenceLabel(f, record) : undefined}
     />
   );
 

@@ -1,18 +1,24 @@
 import { query, type Queryable, sql } from "@/lib/db";
 import type { UserRow } from "@/lib/db/types";
+import { isId } from "@/lib/ids";
 
 export async function findUserByEmail(email: string): Promise<UserRow | null> {
   const rows = await sql<UserRow>`
-    SELECT id, email, password_hash, session_version, created_at FROM users WHERE email = ${email.trim().toLowerCase()}
+    SELECT id, name, email, password_hash, session_version, created_at FROM users WHERE email = ${email.trim().toLowerCase()}
   `;
   return rows[0] ?? null;
 }
 
-/** The user's current session version, or null if the user no longer exists. */
-export async function getSessionVersion(userId: number | string): Promise<number | null> {
-  if (!/^\d+$/.test(String(userId))) return null;
-  const rows = await sql<{ session_version: number }>`SELECT session_version FROM users WHERE id = ${userId}`;
-  return rows[0] ? Number(rows[0].session_version) : null;
+/**
+ * The session check's lookup (spec 09 P2): the user's session version, plus the name and
+ * email the sidebar shows, in one query. Null if the user no longer exists or the id is malformed.
+ */
+export async function getSessionUser(userId: number | string): Promise<{ sessionVersion: number; name: string | null; email: string } | null> {
+  if (!isId(userId)) return null;
+  const rows = await sql<{ session_version: number; name: string | null; email: string }>`
+    SELECT session_version, name, email FROM users WHERE id = ${userId}
+  `;
+  return rows[0] ? { sessionVersion: Number(rows[0].session_version), name: rows[0].name, email: rows[0].email } : null;
 }
 
 /** Invalidates every session the user holds (sign-out, password change). */
@@ -48,7 +54,7 @@ export async function createUser(email: string, passwordHash: string, db?: Query
  * transaction (the count and the delete must see the same state).
  */
 export async function deleteUserChecked(
-  db: { query: (text: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }> },
+  db: Queryable,
   targetId: number | string,
   currentUserId: number | string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -58,11 +64,4 @@ export async function deleteUserChecked(
   if (rows.length <= 1) return { ok: false, error: "Can't delete the last user" };
   await db.query("DELETE FROM users WHERE id = $1", [targetId]);
   return { ok: true };
-}
-
-/** The sidebar footer's name and email for a user (spec 06), or null for an unknown id. */
-export async function getUserDisplay(userId: number | string): Promise<{ name: string | null; email: string } | null> {
-  if (!/^\d+$/.test(String(userId))) return null;
-  const rows = await sql<{ name: string | null; email: string }>`SELECT name, email FROM users WHERE id = ${userId}`;
-  return rows[0] ?? null;
 }

@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { requireSession } from "@/lib/auth";
-import { getUserDisplay } from "@/lib/db/queries/users";
 import { SidebarFrame } from "./sidebar-frame";
 import { SIDEBAR_COOKIE, type SidebarState } from "./sidebar-state";
 import { SignOutButton } from "./sign-out-button";
@@ -11,11 +10,14 @@ export function displayName(user: { name?: string | null; email: string }): stri
   return user.name?.trim() || user.email;
 }
 
-/** Avatar, name (or email) and Sign out. Reads the session, so it streams in. */
+/**
+ * Avatar, name (or email) and Sign out. Reads the session, so it streams in. The name comes
+ * from the session check's own lookup (spec 09 P2), so there's no second `users` query; a
+ * token from before that change, or one kept after a failed lookup, shows the email.
+ */
 async function SidebarUser() {
   const session = await requireSession();
-  const user = (session.user?.id ? await getUserDisplay(session.user.id) : null) ?? { name: null, email: session.user?.email ?? "" };
-  const shown = displayName(user);
+  const shown = displayName({ name: session.user?.name, email: session.user?.email ?? "" });
   return (
     <div data-testid="sidebar-user" className="flex items-center gap-2.5">
       <div

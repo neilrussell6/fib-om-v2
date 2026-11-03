@@ -153,30 +153,37 @@ test("AC-11 the document title contains Fibatron", async ({ page }) => {
   await expect(page).toHaveTitle(/Fibatron/);
 });
 
-const AXE_PAGES = [
-  "/",
-  "/users",
-  "/clients",
-  "/products",
-  "/product-categories",
-  "/product-types",
-  "/product-sizes",
-  "/product-media",
-  "/orders",
-  "/order-items",
-  "/delivery-dockets",
-  "/order-items/new",
-  "/login",
+// Spec 09 T E14: one sweep over every page that spec 06 AC-7 (shell) and spec 02 AC-30 (forms)
+// checked separately, with both rule sets, analysing each page once. /login is checked signed out.
+const AXE_PAGES = (f: Fixture) => [
+  "/", "/users", "/users/new", "/clients", `/clients/${f.clientId}`, `/clients/${f.clientId}/edit`,
+  "/products", `/products/${f.productId}`, `/products/${f.productId}/edit`,
+  "/product-categories", `/product-categories/${f.categoryId}`, `/product-categories/${f.categoryId}/edit`,
+  "/product-types", `/product-types/${f.typeId}`, "/product-sizes", `/product-sizes/${f.sizeId}/edit`,
+  "/product-media", `/product-media/${f.mediaId}`, "/orders", `/orders/${f.orderId}`, `/orders/${f.orderId}/edit`,
+  "/order-items", "/order-items/new", `/order-items/${f.orderItemId}`, `/order-items/${f.orderItemId}/edit`,
+  "/delivery-dockets", `/delivery-dockets/${f.docketId}`, `/delivery-dockets/${f.docketId}/edit`,
 ];
-for (const path of AXE_PAGES) {
-  test(`06 AC-7 axe finds no critical violations and no contrast failures on ${path}`, async ({ page, browser }) => {
-    const target = path === "/login" ? await (await browser.newContext({ storageState: { cookies: [], origins: [] } })).newPage() : page;
+const LABEL_RULES = ["label", "select-name", "button-name"];
+
+test("06 AC-7 / 02 AC-30 axe sweep: no critical, contrast or unlabelled-control violations on any page", async ({ page, browser }) => {
+  test.setTimeout(240_000);
+  const check = async (target: Page, path: string) => {
     await target.goto(path);
+    await expect(target.getByRole("heading", { level: 1 })).toBeVisible(); // every page, /login included, has one h1
     const results = await new AxeBuilder({ page: target }).withTags(["wcag2a", "wcag2aa"]).analyze();
-    expect(results.violations.filter((v) => v.impact === "critical")).toEqual([]);
-    expect(results.violations.filter((v) => v.id === "color-contrast")).toEqual([]);
-  });
-}
+    expect(results.violations.filter((v) => v.impact === "critical"), path).toEqual([]);
+    expect(results.violations.filter((v) => v.id === "color-contrast"), path).toEqual([]);
+    expect(results.violations.filter((v) => LABEL_RULES.includes(v.id)), path).toEqual([]);
+  };
+  for (const path of AXE_PAGES(fx)) await check(page, path);
+  const signedOut = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  try {
+    await check(await signedOut.newPage(), "/login");
+  } finally {
+    await signedOut.close();
+  }
+});
 
 test("06 AC-7 axe on /order-items with the panel open", async ({ page }) => {
   await page.goto(`/order-items?item=${fx.orderItemId}`);

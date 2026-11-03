@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
+    "test:coverage": "vitest run --coverage --project unit --project integration",
     "test:e2e": "playwright test",
     "typecheck": "next typegen && tsc --noEmit",
     "db:migrate": "scripts/db.sh migrate",
@@ -17,7 +18,8 @@
     "db:new": "scripts/db.sh new",
     "db:hash": "scripts/db.sh hash",
     "create-user": "tsx scripts/create-user.ts",
-    "seed:dummy": "tsx scripts/seed-dummy.ts"
+    "seed:dummy": "tsx scripts/seed-dummy.ts",
+    "bench:lists": "tsx scripts/bench-lists.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

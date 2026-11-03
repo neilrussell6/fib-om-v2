@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { withDb } from "../helpers/test-db";
 
 // Design: DB access — the same @neondatabase/serverless driver works against the local proxy.
-describe("lib/db through the Neon-compatible proxy", () => {
+describe("lib/db (direct pg locally)", () => {
   it("runs a tagged-template query with parameters", async () => {
     const { sql } = await import("@/lib/db");
     const rows = (await sql`SELECT ${41}::int + 1 AS answer`) as { answer: number }[];

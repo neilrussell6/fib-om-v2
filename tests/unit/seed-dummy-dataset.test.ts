@@ -64,4 +64,12 @@ describe("AC-9 never from CI", () => {
       expect(text, f).not.toMatch(/seed-dummy|seed:dummy/);
     }
   });
+
+  // Spec 09 P1: the list benchmark seeds 100k rows into a throwaway database, locally only.
+  it("no workflow runs bench:lists", () => {
+    const dir = ".github/workflows";
+    for (const f of readdirSync(dir)) {
+      expect(readFileSync(`${dir}/${f}`, "utf8"), f).not.toMatch(/bench:lists|bench-lists/);
+    }
+  });
 });

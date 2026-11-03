@@ -7,7 +7,7 @@ import { Controller, type FieldErrors, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formFields, getResource, recordTitle, type ResourceKey, singularLabel } from "@/lib/resources";
+import { formFields, getResource, recordTitle, referenceLabel, type ResourceKey, singularLabel } from "@/lib/resources";
 import { saveRecord } from "@/lib/resources/actions";
 import { buildSchema, initialValues } from "@/lib/resources/schema";
 import type { FieldDef, ResourceUi } from "@/lib/resources/types";
@@ -136,7 +136,17 @@ export function RecordPanel({
         </div>
       );
     }
-    return <FieldControl field={f} control={control} errors={errors} idPrefix={idPrefix} dependents={dependentsOf(f.name)} setValue={setValue} />;
+    return (
+      <FieldControl
+        field={f}
+        control={control}
+        errors={errors}
+        idPrefix={idPrefix}
+        dependents={dependentsOf(f.name)}
+        setValue={setValue}
+        refLabel={f.type === "reference" ? referenceLabel(f, record) : undefined}
+      />
+    );
   };
 
   return (

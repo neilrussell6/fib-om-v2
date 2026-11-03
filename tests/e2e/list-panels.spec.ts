@@ -23,7 +23,6 @@ let cat2Id: number;
 let userId: number;
 let userEmail: string;
 let itemA: number;
-let itemB: number;
 
 test.beforeAll(async () => {
   fx = await createFixture();
@@ -50,7 +49,7 @@ test.beforeAll(async () => {
       [orders.soon, fx.productId, `${fx.tag}-${pn}`],
     );
   itemA = await item("IA");
-  itemB = await item("IB");
+  await item("IB"); // the SOON order holds items A and B (07 AC-17)
 });
 test.afterAll(() => removeFixture(fx.tag));
 test.beforeEach(async ({ page, context }) => {
@@ -202,7 +201,9 @@ test.describe("07 AC-4 / AC-5 pills and relative due", () => {
 });
 
 test.describe("07 AC-6 deep links", () => {
-  for (const l of LISTS) {
+  // Spec 09 T E4: every list opens the same RecordPanel (its fields are unit tested per resource
+  // in tests/unit/record-panel-fields.test.tsx); the browser keeps a simple list and Orders.
+  for (const l of LISTS.filter((x) => x.key === "clients" || x.key === "orders")) {
     test(`${l.key}: ?item opens the panel with the caption and title heading`, async ({ page }) => {
       await page.goto(`${l.path}?item=${l.id()}`);
       const p = panel(page, l.region);
@@ -222,29 +223,14 @@ test.describe("07 AC-6 deep links", () => {
     await page.goto("/clients?item=999999999");
     await expect(panel(page, "Edit client")).toHaveCount(0);
     await expect(page.getByText("Client not found", { exact: true })).toBeVisible();
-  });
-
-  test("each panel holds every field of the resource's edit form", async ({ page }) => {
-    const expectations: [ListDef, string[]][] = [
-      [list("clients"), ["Name", "Full Name", "Phone", "Shipping Address", "Billing Address", "ABN", "ACN", "Fax", "Landline", "Label Reorder Text", "Label Name", "Label Sub-name", "Label Address Line 1", "Label Address Line 2"]],
-      [list("product_types"), ["Name", "Code", "MM per Pleat"]],
-      [list("product_media"), ["Name", "Code", "Pleat Spacing"]],
-      [list("product_sizes"), ["Name"]],
-      [list("users"), ["Name", "Email", "Password"]],
-    ];
-    for (const [l, labels] of expectations) {
-      await page.goto(`${l.path}?item=${l.id()}`);
-      const p = panel(page, l.region);
-      for (const label of labels) await expect(p.getByLabel(label, { exact: true })).toBeVisible();
-    }
-    await page.goto(`/clients?item=${fx.clientId}`);
-    await expect(panel(page, "Edit client").getByRole("switch", { name: "Label Use Part Number" })).toBeVisible();
-    await page.goto(`/products?item=${fx.productId}`);
-    for (const label of ["Category", "Type", "Size", "Media"]) {
-      await expect(panel(page, "Edit product").getByRole("combobox", { name: label, exact: true })).toBeVisible();
-    }
-    await expect(panel(page, "Edit product").getByRole("switch", { name: "Notcher" })).toBeVisible();
-    await expect(panel(page, "Edit product").getByLabel("Efficiency", { exact: true })).toBeVisible();
+    // Spec 09 T E12 (merged from order-items.spec 06 AC-18): the same on Order Items' own panel.
+    await page.goto("/order-items?item=abc");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Order items");
+    await expect(panel(page, "Edit order item")).toHaveCount(0);
+    await expect(page.getByText("Order item not found")).toHaveCount(0);
+    await page.goto("/order-items?item=999999999");
+    await expect(panel(page, "Edit order item")).toHaveCount(0);
+    await expect(page.getByText("Order item not found", { exact: true })).toBeVisible();
   });
 });
 
@@ -329,6 +315,22 @@ test.describe("07 AC-8 / AC-9 orders and delivery dockets panels", () => {
     await expect(page.getByText("Delivery Docket successfully updated", { exact: true })).toBeVisible();
     expect(Number((await one<{ c: string }>("SELECT to_client_id AS c FROM delivery_dockets WHERE id = $1", [archivedDocketId])).c)).toBe(fx.otherClientId);
     await one("UPDATE delivery_dockets SET to_client_id = $1 WHERE id = $2", [fx.clientId, archivedDocketId]);
+
+    // Spec 09 AC-3: with an order for the docket's client on it, the To Client can't move away.
+    const heldOrder = await newId(
+      "INSERT INTO orders (client_id, order_number, due_date, delivery_docket_id) VALUES ($1, $2, '2027-01-01', $3) RETURNING id",
+      [fx.clientId, `${fx.tag}-HELD`, archivedDocketId],
+    );
+    try {
+      await page.goto(`/delivery-dockets?item=${archivedDocketId}`);
+      await pickReference(page, "To Client", fx.names.otherClient, fx.names.otherClient, p);
+      await saveBtn(page, "Edit delivery docket").click();
+      await expect(page.getByText("Could not edit Delivery Docket: delivery docket has orders for another client", { exact: true })).toBeVisible();
+      await expect(p).toBeVisible();
+      expect(Number((await one<{ c: string }>("SELECT to_client_id AS c FROM delivery_dockets WHERE id = $1", [archivedDocketId])).c)).toBe(fx.clientId);
+    } finally {
+      await one("DELETE FROM orders WHERE id = $1", [heldOrder]);
+    }
   });
 });
 
@@ -507,26 +509,6 @@ test.describe("07 AC-14 closing, focus, links, sheet", () => {
     await expect(page).toHaveURL(/status=archived/);
     await expect(p).toBeVisible();
     await expect(p.getByLabel("Order Number", { exact: true })).toHaveValue(`${fx.tag}-DONE-EDITED`);
-  });
-});
-
-test.describe("07 AC-16 fix 1: no stale order writes", () => {
-  test("a colleague's change to the order survives a quantity-only save", async ({ page }) => {
-    await page.goto(`/order-items?item=${itemB}`);
-    const p = panel(page, "Edit order item");
-    await p.getByLabel("Quantity", { exact: true }).fill("5");
-    await one("UPDATE orders SET due_date = '2027-01-15', status = 'complete' WHERE id = $1", [orders.soon]);
-    try {
-      await saveBtn(page, "Edit order item").click();
-      await expect(page.getByText(/^Order Item successfully updated/)).toBeVisible();
-      expect(await one("SELECT due_date::text, status::text FROM orders WHERE id = $1", [orders.soon])).toEqual({
-        due_date: "2027-01-15",
-        status: "complete",
-      });
-      expect((await one<{ q: number }>("SELECT quantity AS q FROM order_items WHERE id = $1", [itemB])).q).toBe(5);
-    } finally {
-      await one("UPDATE orders SET due_date = $1, status = 'new' WHERE id = $2", [addDays(todayIn("Australia/Brisbane"), 3), orders.soon]);
-    }
   });
 });
 

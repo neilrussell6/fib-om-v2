@@ -82,6 +82,13 @@ function fieldSchema(key: ResourceKey, mode: "create" | "edit", f: FieldDef): z.
   }
 }
 
+/** Server-side field errors from zod issues: the first message per top-level field (spec 09). */
+export function fieldErrorsFrom(issues: readonly { path: readonly PropertyKey[]; message: string }[]): Record<string, string> {
+  const fieldErrors: Record<string, string> = {};
+  for (const issue of issues) fieldErrors[String(issue.path[0])] ??= issue.message;
+  return fieldErrors;
+}
+
 export function buildSchema(key: ResourceKey, mode: "create" | "edit") {
   const shape: Record<string, z.ZodType> = {};
   for (const f of formFields(getResource(key))) shape[f.name] = fieldSchema(key, mode, f);

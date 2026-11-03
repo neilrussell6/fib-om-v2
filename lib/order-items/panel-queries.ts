@@ -1,7 +1,8 @@
 import "server-only";
 import { query } from "@/lib/db";
 import { APP_TIME_ZONE } from "@/lib/time";
-import { isId, STAGE_FLAG_SELECT, type StageFlags, takeStageFlags } from "./stages";
+import { isId } from "@/lib/ids";
+import { STAGE_FLAG_SELECT, type StageFlags, takeStageFlags } from "./stages";
 
 /**
  * The edit panel's data for one order item (spec 06), read only by the

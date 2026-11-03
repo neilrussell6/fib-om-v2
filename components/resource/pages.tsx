@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
 import { countByStatus, listRecords } from "@/lib/db/list-query";
 import { getRecord } from "@/lib/db/records";
+import { searchReferences } from "@/lib/db/reference-search";
 import { isId } from "@/lib/ids";
+import { first, listParamsFromUrl, newHref, queryWithout, type SearchParams } from "./list-params";
 import { getResource, resourceNewLabel, resourceTitle, singularLabel } from "@/lib/resources";
 import type { ResourceKey } from "@/lib/resources/types";
+import { cn } from "@/lib/utils";
 import { DeleteButton } from "./delete-button";
 import { FilterBar } from "./filter-bar";
 import { formatValue } from "./format";
@@ -19,49 +22,55 @@ import { ResourceForm } from "./resource-form";
 import { ResourceTable } from "./resource-table";
 import { StatusTabs } from "./status-tabs";
 
-export type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+export type { SearchParams };
 type IdParams = Promise<{ id: string }>;
-
-export const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-
-/** The list's "New …" link: the list's current query plus `new=1` (spec 08). */
-export const newHref = (path: string, query: string) => `${path}?${query ? `${query}&` : ""}new=1`;
-
-
-/** The current URL's query without the `drop` keys (so opening and closing a panel or dialog keeps the list as it is). */
-export function queryWithout(sp: Record<string, string | string[] | undefined>, ...drop: string[]): string {
-  const params = new URLSearchParams();
-  for (const [k, v] of Object.entries(sp)) {
-    if (drop.includes(k) || v === undefined) continue;
-    for (const x of Array.isArray(v) ? v : [v]) params.append(k, x);
-  }
-  return params.toString();
-}
-
-/** The list query's params from the URL: only the resource's own filter keys and column sort keys (spec 02). */
-export function listParamsFromUrl(resourceKey: ResourceKey, sp: Record<string, string | string[] | undefined>) {
-  const ui = getResource(resourceKey);
-  const filters = Object.fromEntries(ui.list.filters.map((f) => [f.key, first(sp[f.key])]).filter(([, v]) => v)) as Record<string, string>;
-  const sortParam = first(sp.sort);
-  const sort = ui.list.columns.some((c) => c.key === sortParam) ? sortParam : undefined;
-  const dirParam = first(sp.dir);
-  const dir: "asc" | "desc" | undefined = sort ? (dirParam === "desc" ? "desc" : "asc") : undefined;
-  return { filters, sort, dir, page: Number(first(sp.page)) || 1, pageSize: Number(first(sp.pageSize)) || undefined };
-}
 
 async function recordOr404(resourceKey: ResourceKey, params: IdParams) {
   const { id } = await params;
-  if (!/^\d+$/.test(id)) notFound();
+  if (!isId(id)) notFound();
   const record = await getRecord(resourceKey, id);
   if (!record) notFound();
   return { id, record };
 }
 
+type Row = Record<string, unknown>;
+export type ListTableProps = { rows: Row[]; sort: string; dir: "asc" | "desc"; baseQuery: string; selectedId: string | null };
+export type ListPanelProps = { baseQuery: string; activeStatus: string; covered: boolean };
+
+/** Labels for the reference filters that have a value, so their comboboxes needn't fetch them (spec 09 P3). */
+async function filterLabels(ui: ReturnType<typeof getResource>, filters: Record<string, string>): Promise<Record<string, string>> {
+  const refs = ui.list.filters.filter((f) => f.kind === "reference" && f.ref && isId(filters[f.key]));
+  const found = await Promise.all(refs.map(async (f) => [f.key, (await searchReferences(f.ref!, { id: filters[f.key] }))[0]?.label] as const));
+  return Object.fromEntries(found.filter(([, label]) => label !== undefined)) as Record<string, string>;
+}
+
 /**
  * List page: heading, New, filters, table, pagination (spec 02); status tabs when
- * the resource has them, and the edit panel for `?item=<id>` (spec 07).
+ * the resource has them, and the edit panel for `?item=<id>` (spec 07). A list with its
+ * own table, panel or create dialog (Order Items) passes them in (spec 09).
  */
-export async function ResourceListPage({ resourceKey, searchParams }: { resourceKey: ResourceKey; searchParams: SearchParams }) {
+export async function ResourceListPage({
+  resourceKey,
+  searchParams,
+  loadRecord,
+  renderTable,
+  renderPanel,
+  renderCreate,
+  className,
+  panelAttr,
+}: {
+  resourceKey: ResourceKey;
+  searchParams: SearchParams;
+  /** Reads the `?item` record; defaults to the resource's list/detail row. */
+  loadRecord?: (id: string) => Promise<Row | null>;
+  renderTable?: (props: ListTableProps) => React.ReactNode;
+  renderPanel?: (record: Row, props: ListPanelProps) => React.ReactNode;
+  renderCreate?: (props: { baseQuery: string }) => React.ReactNode;
+  /** Extra class on the page wrapper. */
+  className?: string;
+  /** A data attribute set on the wrapper while the panel is open. */
+  panelAttr?: `data-${string}`;
+}) {
   const ui = getResource(resourceKey);
   const sp = await searchParams;
   const params = listParamsFromUrl(resourceKey, sp);
@@ -69,39 +78,47 @@ export async function ResourceListPage({ resourceKey, searchParams }: { resource
   const statusParam = first(sp.status);
   const status = tabs && tabs.options.some((o) => o.value === statusParam) ? statusParam! : "";
   const itemParam = first(sp.item);
-  const [result, counts, record] = await Promise.all([
+  const load = loadRecord ?? ((id: string) => getRecord(resourceKey, id));
+  const [result, counts, record, labels] = await Promise.all([
     listRecords(resourceKey, { ...params, status: tabs ? status || undefined : undefined }),
     tabs ? countByStatus(resourceKey, params.filters) : Promise.resolve(null),
-    isId(itemParam) ? getRecord(resourceKey, itemParam) : Promise.resolve(null),
+    isId(itemParam) ? load(String(itemParam)) : Promise.resolve(null),
+    filterLabels(ui, params.filters),
   ]);
   const notFoundItem = isId(itemParam) && !record;
   // The panel and the row links never carry `new`; the dialog closes to the URL without `new` only (spec 08).
   const baseQuery = queryWithout(sp, "item", "new");
   const isNew = first(sp.new) === "1";
   const dialogQuery = queryWithout(sp, "new");
+  const selectedId = record ? String(record.id) : null;
+  const panelProps: ListPanelProps = { baseQuery, activeStatus: status, covered: isNew };
 
   return (
-    <div className="-mx-4 -mt-7 -mb-4 flex h-[calc(100%+2.75rem)] md:-mx-8">
+    <div
+      className={cn("-mx-4 -mt-7 -mb-4 flex h-[calc(100%+2.75rem)] md:-mx-8", className)}
+      {...(panelAttr && record ? { [panelAttr]: "" } : {})}
+    >
       <div className="flex min-w-0 flex-1 flex-col px-4 pt-7 md:px-8">
         <PageHeader title={resourceTitle(ui)}>
           <NewRecordLink href={newHref(ui.path, dialogQuery)} label={resourceNewLabel(ui)} />
         </PageHeader>
         {tabs && counts ? <StatusTabs counts={counts} active={status} options={tabs.options} /> : null}
-        <FilterBar filters={ui.list.filters} />
-        <ResourceTable
-          resourceKey={resourceKey}
-          rows={result.rows}
-          sort={result.sort}
-          dir={result.dir}
-          baseQuery={baseQuery}
-          selectedId={record ? String(record.id) : null}
-        />
+        <FilterBar filters={ui.list.filters} labels={labels} />
+        {renderTable ? (
+          renderTable({ rows: result.rows, sort: result.sort, dir: result.dir, baseQuery, selectedId })
+        ) : (
+          <ResourceTable resourceKey={resourceKey} rows={result.rows} sort={result.sort} dir={result.dir} baseQuery={baseQuery} selectedId={selectedId} />
+        )}
         <Pagination total={result.total} page={result.page} pageSize={result.pageSize} />
       </div>
       {record ? (
-        <RecordPanel key={String(record.id)} resourceKey={resourceKey} record={record} baseQuery={baseQuery} activeStatus={status} covered={isNew} />
+        renderPanel ? (
+          renderPanel(record, panelProps)
+        ) : (
+          <RecordPanel key={String(record.id)} resourceKey={resourceKey} record={record} {...panelProps} />
+        )
       ) : null}
-      {isNew ? <RecordCreateForm resourceKey={resourceKey} baseQuery={dialogQuery} /> : null}
+      {isNew ? renderCreate ? renderCreate({ baseQuery: dialogQuery }) : <RecordCreateForm resourceKey={resourceKey} baseQuery={dialogQuery} /> : null}
       {notFoundItem ? <NotFoundToast label={singularLabel(ui)} /> : null}
     </div>
   );
