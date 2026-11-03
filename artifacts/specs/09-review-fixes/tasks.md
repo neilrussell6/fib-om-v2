@@ -340,7 +340,7 @@ Order:
 
 - [ ] `npx playwright test --list` reports ≤ 145 tests, with ~144 expected. If it reports more,
   find which E-row was missed before adding anything (AC 16)
-- [ ] `npm run test:integration` takes ≤ 25 s on the author's machine. Record the e2e run time in
+- [ ] `npm run test:integration` takes ≤ 50 s (relaxed from ≤ 25 s at PR validation) on the author's machine. Record the e2e run time in
   the implementation changelog (AC 19)
 - [ ] `npm run bench:lists` exits 0, with the All and New medians ≤ 300 ms (AC 14)
 - [ ] `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:integration`,

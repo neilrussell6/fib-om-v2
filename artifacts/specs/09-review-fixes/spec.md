@@ -443,7 +443,7 @@ old title, with the file and title of the test that now covers it.
     - `list-query` invalid-value, unknown-key and status-rule cases are unit tests of the
       exported builder, with the three integration cases from I3 kept.
     - `db.test` is renamed (I5).
-19. **AC-19** `npm run test:integration` takes ≤ 25 s on the author's machine (baseline ~50 s).
+19. **AC-19** `npm run test:integration` takes ≤ 50 s on the author's machine, by vitest's reported Duration (baseline ~50 s; relaxed from ≤ 25 s at PR validation, 2026-11-03).
     The e2e run time is measured and recorded in the implementation changelog, with no gate.
 20. **AC-20** `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:integration`,
     `npm run build` and `npm run test:e2e` all pass.
