@@ -260,3 +260,8 @@ Shared background for all five features: `artifacts/docs/nextjs-vercel-neon-migr
 - 20261102-211524 — Phase 1, step "spec revision" (author-requested test-pyramid section): done — `logs/09-review-fixes/20261102-211524--spec-revision-changelog.md`
 - 20261102-211806 — Phase 1, step "commit": done — commit `fc94fe6`
 - 20261102-211806 — Phase 1, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/09-review-fixes/20261102-211806--book-changelog.md`
+- 20261103-205246 — Phase 2, step "tasks": done — `artifacts/specs/09-review-fixes/tasks.md`
+- 20261103-205246 — Phase 2, step "review tasks" + "validate tasks": PASS (with fix) — `logs/09-review-fixes/20261103-205246--task-review--PASS.md`
+- 20261103-205246 — Phase 2, step "task revision" (non-blocking fixes): done — `artifacts/specs/09-review-fixes/tasks.md`
+- 20261103-205246 — Phase 2, step "commit": done — commit `529cdef`
+- 20261103-205317 — Phase 2, step "book": done — `artifacts/books/fib-om-v2.md`, `logs/09-review-fixes/20261103-205317--book-changelog.md`
